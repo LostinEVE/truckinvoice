@@ -19,6 +19,8 @@ window.addEventListener('DOMContentLoaded', () => {
     loadCompanyInfo();
     setTodayAsDefault();
     setupNavigation();
+    setupQuickFill();
+    setupCalculator();
 });
 
 // Set today's date as default
@@ -330,6 +332,11 @@ function setupNavigation() {
         displayHistory();
     });
 
+    newInvoiceBtn.addEventListener('click', () => {
+        // Refresh customer list when returning to form
+        populateCustomerList();
+    });
+
     searchInput.addEventListener('input', (e) => {
         displayHistory(e.target.value);
     });
@@ -391,4 +398,99 @@ function deleteInvoice(id) {
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
         displayHistory();
     }
+}
+
+// Quick Fill for Repeat Customers
+function setupQuickFill() {
+    const customerSelect = document.getElementById('customerQuickFill');
+    populateCustomerList();
+
+    customerSelect.addEventListener('change', (e) => {
+        if (e.target.value) {
+            const customerData = JSON.parse(e.target.value);
+            document.getElementById('customerName').value = customerData.customerName;
+
+            // Reset select after use
+            setTimeout(() => {
+                e.target.value = '';
+            }, 100);
+        }
+    });
+}
+
+function populateCustomerList() {
+    const invoices = getInvoiceHistory();
+    const customerSelect = document.getElementById('customerQuickFill');
+
+    // Get unique customers
+    const customerMap = new Map();
+    invoices.forEach(inv => {
+        const key = inv.customerName.toLowerCase();
+        if (!customerMap.has(key)) {
+            customerMap.set(key, {
+                customerName: inv.customerName,
+                count: 1,
+                lastUsed: new Date(inv.timestamp)
+            });
+        } else {
+            const existing = customerMap.get(key);
+            existing.count++;
+            const invDate = new Date(inv.timestamp);
+            if (invDate > existing.lastUsed) {
+                existing.lastUsed = invDate;
+            }
+        }
+    });
+
+    // Sort by most recent first
+    const customers = Array.from(customerMap.values())
+        .sort((a, b) => b.lastUsed - a.lastUsed);
+
+    // Clear existing options except first
+    customerSelect.innerHTML = '<option value="">Quick Fill...</option>';
+
+    // Add customer options
+    customers.forEach(customer => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify(customer);
+        option.textContent = `${customer.customerName} (${customer.count} invoice${customer.count > 1 ? 's' : ''})`;
+        customerSelect.appendChild(option);
+    });
+}
+
+// Mile/Rate Calculator
+function setupCalculator() {
+    const milesInput = document.getElementById('miles');
+    const rateInput = document.getElementById('ratePerMile');
+    const useCalculatedBtn = document.getElementById('useCalculated');
+    const calcValueSpan = document.querySelector('.calc-value');
+
+    function updateCalculation() {
+        const miles = parseFloat(milesInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        const total = miles * rate;
+
+        if (total > 0) {
+            calcValueSpan.textContent = `$${total.toFixed(2)}`;
+            useCalculatedBtn.disabled = false;
+        } else {
+            calcValueSpan.textContent = '$0.00';
+            useCalculatedBtn.disabled = true;
+        }
+    }
+
+    milesInput.addEventListener('input', updateCalculation);
+    rateInput.addEventListener('input', updateCalculation);
+
+    useCalculatedBtn.addEventListener('click', () => {
+        const calcValue = calcValueSpan.textContent.replace('$', '');
+        document.getElementById('amount').value = calcValue;
+
+        // Visual feedback
+        const amountInput = document.getElementById('amount');
+        amountInput.style.background = '#e8f5e9';
+        setTimeout(() => {
+            amountInput.style.background = '';
+        }, 1000);
+    });
 }

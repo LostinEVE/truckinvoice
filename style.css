@@ -274,6 +274,97 @@ input:focus {
     color: white;
 }
 
+/* Quick Fill Customer */
+.customer-input-wrapper {
+    display: flex;
+    gap: 10px;
+}
+
+.customer-input-wrapper input {
+    flex: 2;
+}
+
+.quick-fill-select {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #667eea;
+    border-radius: 5px;
+    font-size: 14px;
+    background: white;
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.quick-fill-select:hover {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.quick-fill-select:focus {
+    outline: none;
+    border-color: #764ba2;
+}
+
+/* Calculator Section */
+.calculator-section {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border: 2px dashed #667eea;
+}
+
+.calculator-result {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+}
+
+.calculated-amount {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.calc-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.calc-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.btn-use-calculated {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-use-calculated:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+}
+
+.btn-use-calculated:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 @media (max-width: 600px) {
     .container {
         padding: 20px;
@@ -299,5 +390,23 @@ input:focus {
 
     .history-actions {
         flex-direction: column;
+    }
+
+    .customer-input-wrapper {
+        flex-direction: column;
+    }
+
+    .customer-input-wrapper input,
+    .quick-fill-select {
+        flex: 1;
+    }
+
+    .calculator-result {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .btn-use-calculated {
+        width: 100%;
     }
 }

@@ -63,7 +63,12 @@
 
                 <div class="form-group">
                     <label>Customer's Name:</label>
-                    <input type="text" id="customerName" placeholder="Ferguson Enterprises LLC" required>
+                    <div class="customer-input-wrapper">
+                        <input type="text" id="customerName" placeholder="Ferguson Enterprises LLC" required>
+                        <select id="customerQuickFill" class="quick-fill-select" title="Select a repeat customer to auto-fill details">
+                            <option value="">Quick Fill...</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -80,6 +85,28 @@
                 <div class="form-group">
                     <label>Amount to be Paid ($):</label>
                     <input type="number" step="0.01" id="amount" placeholder="1445.20" required>
+                </div>
+            </div>
+
+            <!-- Mile/Rate Calculator -->
+            <div class="section calculator-section">
+                <h2>Mile/Rate Calculator (Optional)</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Miles Driven:</label>
+                        <input type="number" step="0.1" id="miles" placeholder="450">
+                    </div>
+                    <div class="form-group">
+                        <label>Rate per Mile ($):</label>
+                        <input type="number" step="0.01" id="ratePerMile" placeholder="2.50">
+                    </div>
+                </div>
+                <div class="calculator-result">
+                    <div class="calculated-amount" id="calculatedAmount">
+                        <span class="calc-label">Calculated Amount:</span>
+                        <span class="calc-value">$0.00</span>
+                    </div>
+                    <button type="button" class="btn-use-calculated" id="useCalculated" disabled>Use This Amount</button>
                 </div>
             </div>
 
