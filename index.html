@@ -17,6 +17,14 @@
         <h1>TruckInvoice Generator</h1>
         <p class="subtitle">Generate J.B. Hunt invoices in seconds</p>
 
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button type="button" id="newInvoiceBtn" class="nav-tab active">New Invoice</button>
+            <button type="button" id="historyBtn" class="nav-tab">Invoice History</button>
+        </div>
+
+        <!-- New Invoice View -->
+        <div id="invoiceFormView" class="view active">
         <form id="invoiceForm">
             <!-- Your Company Info (saved automatically) -->
             <div class="section">
@@ -77,6 +85,17 @@
 
             <button type="submit" class="btn-generate">Generate Invoice PDF</button>
         </form>
+        </div>
+
+        <!-- Invoice History View -->
+        <div id="historyView" class="view">
+            <div class="history-header-section">
+                <input type="text" id="searchHistory" placeholder="Search by invoice #, load #, or customer name..." class="search-input">
+            </div>
+            <div id="historyList" class="history-list">
+                <div class="no-history">No invoices yet. Generate your first invoice!</div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

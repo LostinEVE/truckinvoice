@@ -18,6 +18,7 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('DOMContentLoaded', () => {
     loadCompanyInfo();
     setTodayAsDefault();
+    setupNavigation();
 });
 
 // Set today's date as default
@@ -169,6 +170,9 @@ function generateInvoicePDF(data) {
 
     // Save PDF locally
     doc.save(`${fileName}.pdf`);
+
+    // Save invoice to history
+    saveInvoiceToHistory(data);
 }
 
 function generateInvoiceJPG(data) {
@@ -285,4 +289,106 @@ function sendImageToPhone(jpgBase64, fileName, data) {
             console.error('Email send failed:', error);
             alert('Invoice files generated, but failed to send email notification. Error: ' + error.text);
         });
+}
+
+// Invoice History Functions
+function saveInvoiceToHistory(data) {
+    const invoices = getInvoiceHistory();
+    const invoice = {
+        ...data,
+        timestamp: new Date().toISOString(),
+        id: Date.now().toString()
+    };
+    invoices.unshift(invoice); // Add to beginning
+    localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
+}
+
+function getInvoiceHistory() {
+    const history = localStorage.getItem('invoiceHistory');
+    return history ? JSON.parse(history) : [];
+}
+
+function setupNavigation() {
+    const newInvoiceBtn = document.getElementById('newInvoiceBtn');
+    const historyBtn = document.getElementById('historyBtn');
+    const invoiceFormView = document.getElementById('invoiceFormView');
+    const historyView = document.getElementById('historyView');
+    const searchInput = document.getElementById('searchHistory');
+
+    newInvoiceBtn.addEventListener('click', () => {
+        invoiceFormView.classList.add('active');
+        historyView.classList.remove('active');
+        newInvoiceBtn.classList.add('active');
+        historyBtn.classList.remove('active');
+    });
+
+    historyBtn.addEventListener('click', () => {
+        historyView.classList.add('active');
+        invoiceFormView.classList.remove('active');
+        historyBtn.classList.add('active');
+        newInvoiceBtn.classList.remove('active');
+        displayHistory();
+    });
+
+    searchInput.addEventListener('input', (e) => {
+        displayHistory(e.target.value);
+    });
+}
+
+function displayHistory(searchTerm = '') {
+    const invoices = getInvoiceHistory();
+    const historyList = document.getElementById('historyList');
+
+    let filteredInvoices = invoices;
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredInvoices = invoices.filter(inv =>
+            inv.invoiceNumber.toLowerCase().includes(term) ||
+            inv.loadNumber.toLowerCase().includes(term) ||
+            inv.customerName.toLowerCase().includes(term)
+        );
+    }
+
+    if (filteredInvoices.length === 0) {
+        historyList.innerHTML = '<div class="no-history">No invoices found</div>';
+        return;
+    }
+
+    historyList.innerHTML = filteredInvoices.map(invoice => `
+        <div class="history-item">
+            <div class="history-header">
+                <div class="history-title">
+                    <strong>Invoice #${invoice.invoiceNumber}</strong>
+                    <span class="history-date">${new Date(invoice.timestamp).toLocaleDateString()}</span>
+                </div>
+                <div class="history-amount">$${invoice.amount}</div>
+            </div>
+            <div class="history-details">
+                <div><strong>Customer:</strong> ${invoice.customerName}</div>
+                <div><strong>Load #:</strong> ${invoice.loadNumber}</div>
+                <div><strong>Date Delivered:</strong> ${invoice.dateDelivered}</div>
+            </div>
+            <div class="history-actions">
+                <button class="btn-regenerate" onclick="regenerateInvoice('${invoice.id}')">Regenerate PDF</button>
+                <button class="btn-delete" onclick="deleteInvoice('${invoice.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function regenerateInvoice(id) {
+    const invoices = getInvoiceHistory();
+    const invoice = invoices.find(inv => inv.id === id);
+    if (invoice) {
+        generateInvoicePDF(invoice);
+    }
+}
+
+function deleteInvoice(id) {
+    if (confirm('Are you sure you want to delete this invoice from history?')) {
+        let invoices = getInvoiceHistory();
+        invoices = invoices.filter(inv => inv.id !== id);
+        localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
+        displayHistory();
+    }
 }
