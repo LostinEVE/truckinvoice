@@ -2,7 +2,7 @@
   "name": "TruckInvoice Generator",
   "short_name": "TruckInvoice",
   "description": "Generate J.B. Hunt invoices quickly",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2c3e50",
