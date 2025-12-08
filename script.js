@@ -32,10 +32,12 @@ function loadCompanyInfo() {
     const companyName = localStorage.getItem('companyName');
     const companyAddress = localStorage.getItem('companyAddress');
     const carrierId = localStorage.getItem('carrierId');
+    const userEmail = localStorage.getItem('userEmail');
 
     if (companyName) document.getElementById('companyName').value = companyName;
     if (companyAddress) document.getElementById('companyAddress').value = companyAddress;
     if (carrierId) document.getElementById('carrierId').value = carrierId;
+    if (userEmail) document.getElementById('userEmail').value = userEmail;
 }
 
 // Save company info to localStorage
@@ -43,6 +45,7 @@ function saveCompanyInfo() {
     localStorage.setItem('companyName', document.getElementById('companyName').value);
     localStorage.setItem('companyAddress', document.getElementById('companyAddress').value);
     localStorage.setItem('carrierId', document.getElementById('carrierId').value);
+    localStorage.setItem('userEmail', document.getElementById('userEmail').value);
 }
 
 // Format date from YYYY-MM-DD to MM/DD/YYYY
@@ -71,6 +74,7 @@ document.getElementById('invoiceForm').addEventListener('submit', (e) => {
     const companyName = document.getElementById('companyName').value;
     const companyAddress = document.getElementById('companyAddress').value;
     const carrierId = document.getElementById('carrierId').value;
+    const userEmail = document.getElementById('userEmail').value;
 
     // Generate PDF
     generateInvoicePDF({
@@ -82,7 +86,8 @@ document.getElementById('invoiceForm').addEventListener('submit', (e) => {
         amount,
         companyName,
         companyAddress,
-        carrierId
+        carrierId,
+        userEmail
     });
 });
 
@@ -262,7 +267,7 @@ function sendImageToPhone(jpgBase64, fileName, data) {
     console.log('Starting email send process...');
 
     const templateParams = {
-        to_email: 'jrogers4174@outlook.com',
+        to_email: data.userEmail,
         invoice_number: data.invoiceNumber,
         load_number: data.loadNumber,
         amount: data.amount,
@@ -274,7 +279,7 @@ function sendImageToPhone(jpgBase64, fileName, data) {
     emailjs.send('service_bhz3o5d', 'template_c0db69o', templateParams)
         .then((response) => {
             console.log('Email sent successfully:', response.status, response.text);
-            alert('Invoice PDF and JPG generated and email notification sent to your phone successfully!');
+            alert('Invoice PDF and JPG generated and email notification sent to ' + data.userEmail + ' successfully!');
         })
         .catch((error) => {
             console.error('Email send failed:', error);
