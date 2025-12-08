@@ -141,7 +141,7 @@ function generateInvoicePDF(data) {
     doc.text(`__${data.dateDelivered}____________`, margin, y);
     y += lineHeight + 2;
 
-    doc.text('JBH Load #:', margin, y);
+    doc.text('Load Number:', margin, y);
     y += lineHeight;
     doc.text(`__${data.loadNumber}______________`, margin, y);
     y += lineHeight + 3;
@@ -226,7 +226,7 @@ function generateInvoiceJPG(data) {
     ctx.fillText(`__${data.dateDelivered}____________`, 95, y);
     y += lineHeight + 8;
 
-    ctx.fillText('JBH Load #:', 95, y);
+    ctx.fillText('Load Number:', 95, y);
     y += lineHeight;
     ctx.fillText(`__${data.loadNumber}______________`, 95, y);
     y += lineHeight + 12;

@@ -1,6 +1,26 @@
 # TruckInvoice - Quick Invoice Generator for OTR Drivers
 
-Generate professional J.B. Hunt invoices in seconds instead of manually filling out PDFs.
+Generate professional invoices in seconds instead of manually filling out PDFs. Works with any carrier!
+
+## Features
+
+### Invoice Generation
+- **Auto-saves your company info** (no re-typing)
+- **Auto-fills today's date**
+- Downloads ready-to-upload **PDF and JPG**
+- Email notifications when invoices are generated
+- Works **offline** (no internet needed)
+
+### Invoice History & Tracking
+- **Automatic history** of all generated invoices
+- **Search and filter** by invoice #, load #, or customer name
+- **Regenerate** any past invoice with one click
+- Delete unwanted history entries
+
+### Time-Saving Tools
+- **Quick Fill for Repeat Customers** - dropdown shows your past customers with one-click auto-fill
+- **Mile/Rate Calculator** - enter miles and rate per mile to automatically calculate payment amount
+- **Responsive design** - works on desktop, tablet, and mobile
 
 ## How to Use
 
@@ -10,49 +30,34 @@ Generate professional J.B. Hunt invoices in seconds instead of manually filling 
    - Enter invoice number
    - Enter customer name
    - Enter load number
-   - Enter amount
+   - Enter amount (or use the calculator)
    - Click "Generate Invoice PDF"
-4. **Upload**: Upload the downloaded PDF to J.B. Hunt 360 box
+4. **Upload**: Upload the downloaded PDF to your carrier's portal
 
-## Features
+## Quick Tips
 
-- Auto-saves your company info (no re-typing)
-- Matches J.B. Hunt invoice format exactly
-- Auto-fills today's date
-- Downloads ready-to-upload PDF
-- Works offline (no internet needed)
-
-## Next Steps to Make Money
-
-### Phase 1: Use it yourself (NOW)
-- Test with your next few loads
-- Make sure J.B. Hunt accepts the PDFs
-
-### Phase 2: Add features YOU need
-- Invoice history/tracking
-- Payment status tracking
-- Quick fill for repeat customers
-- Mile/rate calculator
-
-### Phase 3: Share with other drivers
-- Post in trucker Facebook groups
-- Offer free version + premium ($5-10/month) for:
-  - Multiple carriers (not just JBH)
-  - Cloud backup of invoices
-  - Mobile app version
-  - Auto-email invoices
-
-### Phase 4: Scale it
-- Build landing page
-- Add Stripe for payments
-- Market to owner-operators
+- **Calculator**: Enter miles and rate to auto-calculate payment
+- **Quick Fill**: Click the dropdown next to customer name to re-use past customers
+- **History**: View all past invoices in the "Invoice History" tab
+- **Search**: Find specific invoices by typing in the search box
 
 ## Tech Stack
+
 - HTML/CSS/JavaScript
 - jsPDF for PDF generation
+- EmailJS for notifications
 - localStorage for data persistence
-- No backend needed (yet)
+- PWA (Progressive Web App) ready
+
+## For Distribution
+
+This app is **carrier-agnostic** and works for:
+- J.B. Hunt
+- Schneider
+- Werner
+- Swift
+- Any trucking carrier or independent loads
 
 ---
 
-**Start using it today. Add features as YOU need them. Other drivers have the same problems.**
+**Perfect for owner-operators and independent drivers who need professional invoices fast.**
