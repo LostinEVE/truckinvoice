@@ -17,7 +17,18 @@
         <h1>TruckInvoice Generator</h1>
         <p class="subtitle">Generate professional invoices in seconds</p>
 
-        <!-- Navigation Tabs -->
+        <!-- Mobile Navigation Dropdown -->
+        <div class="nav-dropdown-container">
+            <select id="navDropdown" class="nav-dropdown" title="Navigate to page">
+                <option value="invoice">New Invoice</option>
+                <option value="receipt">Upload Receipt</option>
+                <option value="history">Invoice History</option>
+                <option value="expenses">Expenses</option>
+                <option value="dashboard">Dashboard</option>
+            </select>
+        </div>
+
+        <!-- Desktop Navigation Tabs -->
         <div class="nav-tabs">
             <button type="button" id="newInvoiceBtn" class="nav-tab active">New Invoice</button>
             <button type="button" id="receiptUploadBtn" class="nav-tab">Upload Receipt</button>

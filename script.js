@@ -327,6 +327,7 @@ function setupNavigation() {
     const dashboardView = document.getElementById('dashboardView');
 
     const searchInput = document.getElementById('searchHistory');
+    const navDropdown = document.getElementById('navDropdown');
 
     const allButtons = [newInvoiceBtn, receiptUploadBtn, historyBtn, expensesBtn, dashboardBtn];
     const allViews = [invoiceFormView, receiptUploadView, historyView, expensesView, dashboardView];
@@ -338,28 +339,64 @@ function setupNavigation() {
         activeBtn.classList.add('active');
     }
 
+    // Handle dropdown navigation
+    navDropdown.addEventListener('change', (e) => {
+        const value = e.target.value;
+        switch(value) {
+            case 'invoice':
+                switchView(invoiceFormView, newInvoiceBtn);
+                populateCustomerList();
+                navDropdown.value = 'invoice';
+                break;
+            case 'receipt':
+                switchView(receiptUploadView, receiptUploadBtn);
+                navDropdown.value = 'receipt';
+                break;
+            case 'history':
+                switchView(historyView, historyBtn);
+                displayHistory();
+                navDropdown.value = 'history';
+                break;
+            case 'expenses':
+                switchView(expensesView, expensesBtn);
+                displayExpenses();
+                navDropdown.value = 'expenses';
+                break;
+            case 'dashboard':
+                switchView(dashboardView, dashboardBtn);
+                updateDashboard();
+                navDropdown.value = 'dashboard';
+                break;
+        }
+    });
+
     newInvoiceBtn.addEventListener('click', () => {
         switchView(invoiceFormView, newInvoiceBtn);
         populateCustomerList();
+        navDropdown.value = 'invoice';
     });
 
     receiptUploadBtn.addEventListener('click', () => {
         switchView(receiptUploadView, receiptUploadBtn);
+        navDropdown.value = 'receipt';
     });
 
     historyBtn.addEventListener('click', () => {
         switchView(historyView, historyBtn);
         displayHistory();
+        navDropdown.value = 'history';
     });
 
     expensesBtn.addEventListener('click', () => {
         switchView(expensesView, expensesBtn);
         displayExpenses();
+        navDropdown.value = 'expenses';
     });
 
     dashboardBtn.addEventListener('click', () => {
         switchView(dashboardView, dashboardBtn);
         updateDashboard();
+        navDropdown.value = 'dashboard';
     });
 
     searchInput.addEventListener('input', (e) => {
