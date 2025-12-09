@@ -82,6 +82,11 @@ document.getElementById('invoiceForm').addEventListener('submit', (e) => {
     const carrierId = document.getElementById('carrierId').value;
     const userEmail = document.getElementById('userEmail').value;
 
+    // Get product information if available
+    const productDescription = document.getElementById('productDescription').value.trim();
+    const pieceCount = document.getElementById('pieceCount').value;
+    const ratePerPiece = document.getElementById('ratePerPiece').value;
+
     // Generate PDF
     generateInvoicePDF({
         invoiceNumber,
@@ -93,7 +98,10 @@ document.getElementById('invoiceForm').addEventListener('submit', (e) => {
         companyName,
         companyAddress,
         carrierId,
-        userEmail
+        userEmail,
+        productDescription,
+        pieceCount,
+        ratePerPiece
     });
 });
 
@@ -148,6 +156,20 @@ function generateInvoicePDF(data) {
     y += lineHeight;
     doc.text(`__${data.loadNumber}______________`, margin, y);
     y += lineHeight + 3;
+
+    // Add product description if available
+    if (data.productDescription && data.productDescription.length > 0) {
+        doc.text('Product Description:', margin, y);
+        y += lineHeight;
+        doc.text(`__${data.productDescription}`, margin, y);
+        y += lineHeight;
+        if (data.pieceCount && data.ratePerPiece) {
+            doc.text(`(${data.pieceCount} pieces @ $${parseFloat(data.ratePerPiece).toFixed(2)}/piece)`, margin, y);
+            y += lineHeight + 2;
+        } else {
+            y += 2;
+        }
+    }
 
     doc.text('Amount to be paid:', margin, y);
     y += lineHeight;
@@ -234,6 +256,20 @@ function generateInvoiceJPG(data) {
     ctx.fillText(`__${data.loadNumber}______________`, 95, y);
     y += lineHeight + 12;
 
+    // Add product description if available
+    if (data.productDescription && data.productDescription.length > 0) {
+        ctx.fillText('Product Description:', 95, y);
+        y += lineHeight;
+        ctx.fillText(`__${data.productDescription}`, 95, y);
+        y += lineHeight;
+        if (data.pieceCount && data.ratePerPiece) {
+            ctx.fillText(`(${data.pieceCount} pieces @ $${parseFloat(data.ratePerPiece).toFixed(2)}/piece)`, 95, y);
+            y += lineHeight + 8;
+        } else {
+            y += 8;
+        }
+    }
+
     ctx.fillText('Amount to be paid:', 95, y);
     y += lineHeight;
     ctx.fillText(`${data.amount}______________ Your`, 95, y);
@@ -302,7 +338,8 @@ function saveInvoiceToHistory(data) {
     const invoice = {
         ...data,
         timestamp: new Date().toISOString(),
-        id: Date.now().toString()
+        id: Date.now().toString(),
+        paymentStatus: 'unpaid' // Default to unpaid
     };
     invoices.unshift(invoice); // Add to beginning
     localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
@@ -425,12 +462,25 @@ function displayHistory(searchTerm = '') {
         return;
     }
 
-    historyList.innerHTML = filteredInvoices.map(invoice => `
-        <div class="history-item">
+    // Check for overdue invoices and show alert
+    checkOverdueInvoices(filteredInvoices);
+
+    historyList.innerHTML = filteredInvoices.map(invoice => {
+        const isPaid = invoice.paymentStatus === 'paid';
+        const deliveredDate = new Date(invoice.dateDelivered);
+        const daysSinceDelivery = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
+        const isOverdue = !isPaid && daysSinceDelivery >= 30;
+
+        return `
+        <div class="history-item ${isOverdue ? 'overdue' : ''}">
             <div class="history-header">
                 <div class="history-title">
                     <strong>Invoice #${invoice.invoiceNumber}</strong>
                     <span class="history-date">${new Date(invoice.timestamp).toLocaleDateString()}</span>
+                    <span class="payment-status ${isPaid ? 'paid' : 'unpaid'}">
+                        ${isPaid ? '✓ Paid' : 'Unpaid'}
+                    </span>
+                    ${isOverdue ? '<span class="overdue-badge">⚠ 30+ Days Overdue</span>' : ''}
                 </div>
                 <div class="history-amount">$${invoice.amount}</div>
             </div>
@@ -438,13 +488,19 @@ function displayHistory(searchTerm = '') {
                 <div><strong>Customer:</strong> ${invoice.customerName}</div>
                 <div><strong>Load #:</strong> ${invoice.loadNumber}</div>
                 <div><strong>Date Delivered:</strong> ${invoice.dateDelivered}</div>
+                ${isOverdue ? `<div class="overdue-text"><strong>Days Overdue:</strong> ${daysSinceDelivery} days</div>` : ''}
             </div>
             <div class="history-actions">
+                <label class="payment-checkbox">
+                    <input type="checkbox" ${isPaid ? 'checked' : ''} onchange="togglePaymentStatus('${invoice.id}', this.checked)">
+                    <span>Mark as Paid</span>
+                </label>
                 <button class="btn-regenerate" onclick="regenerateInvoice('${invoice.id}')">Regenerate PDF</button>
                 <button class="btn-delete" onclick="deleteInvoice('${invoice.id}')">Delete</button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function regenerateInvoice(id) {
@@ -462,6 +518,94 @@ function deleteInvoice(id) {
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
         displayHistory();
     }
+}
+
+function togglePaymentStatus(id, isPaid) {
+    let invoices = getInvoiceHistory();
+    const invoice = invoices.find(inv => inv.id === id);
+    if (invoice) {
+        invoice.paymentStatus = isPaid ? 'paid' : 'unpaid';
+        localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
+        displayHistory();
+
+        // Show confirmation message
+        const message = isPaid
+            ? `Invoice #${invoice.invoiceNumber} marked as PAID ✓`
+            : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
+        showPaymentToast(message, isPaid);
+    }
+}
+
+function checkOverdueInvoices(invoices) {
+    const overdueInvoices = invoices.filter(invoice => {
+        if (invoice.paymentStatus === 'paid') return false;
+
+        const deliveredDate = new Date(invoice.dateDelivered);
+        const daysSinceDelivery = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
+        return daysSinceDelivery >= 30;
+    });
+
+    if (overdueInvoices.length > 0) {
+        // Show alert at top of page
+        showOverdueAlert(overdueInvoices);
+    } else {
+        // Remove alert if no overdue invoices
+        const existingAlert = document.querySelector('.overdue-alert');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+    }
+}
+
+function showOverdueAlert(overdueInvoices) {
+    // Remove existing alert if present
+    const existingAlert = document.querySelector('.overdue-alert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+
+    const historyView = document.getElementById('historyView');
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'overdue-alert';
+
+    const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+
+    alertDiv.innerHTML = `
+        <div class="alert-content">
+            <span class="alert-icon">⚠</span>
+            <div class="alert-message">
+                <strong>Payment Alert:</strong> You have ${overdueInvoices.length} invoice${overdueInvoices.length > 1 ? 's' : ''}
+                that ${overdueInvoices.length > 1 ? 'are' : 'is'} 30+ days past due (Total: $${totalOverdue.toFixed(2)})
+            </div>
+            <button class="alert-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+        <div class="overdue-list">
+            ${overdueInvoices.map(inv => {
+                const deliveredDate = new Date(inv.dateDelivered);
+                const days = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
+                return `<div class="overdue-item">Invoice #${inv.invoiceNumber} - ${inv.customerName} - $${inv.amount} (${days} days overdue)</div>`;
+            }).join('')}
+        </div>
+    `;
+
+    historyView.insertBefore(alertDiv, historyView.firstChild);
+}
+
+function showPaymentToast(message, isPaid) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `payment-toast ${isPaid ? 'success' : 'info'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Show toast
+    setTimeout(() => toast.classList.add('show'), 100);
+
+    // Hide and remove toast after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // Quick Fill for Repeat Customers
@@ -522,14 +666,38 @@ function populateCustomerList() {
     });
 }
 
-// Mile/Rate Calculator
+// Calculator Setup (Miles/Rate and Product Count)
 function setupCalculator() {
+    // Calculator tab switching
+    const calcTabs = document.querySelectorAll('.calc-tab');
+    const milesCalculator = document.getElementById('milesCalculator');
+    const productCalculator = document.getElementById('productCalculator');
+
+    calcTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update active tab
+            calcTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Show corresponding calculator
+            const calcType = tab.dataset.calc;
+            if (calcType === 'miles') {
+                milesCalculator.classList.add('active');
+                productCalculator.classList.remove('active');
+            } else {
+                productCalculator.classList.add('active');
+                milesCalculator.classList.remove('active');
+            }
+        });
+    });
+
+    // Miles Calculator
     const milesInput = document.getElementById('miles');
     const rateInput = document.getElementById('ratePerMile');
     const useCalculatedBtn = document.getElementById('useCalculated');
-    const calcValueSpan = document.querySelector('.calc-value');
+    const calcValueSpan = document.querySelector('#calculatedAmount .calc-value');
 
-    function updateCalculation() {
+    function updateMilesCalculation() {
         const miles = parseFloat(milesInput.value) || 0;
         const rate = parseFloat(rateInput.value) || 0;
         const total = miles * rate;
@@ -543,20 +711,52 @@ function setupCalculator() {
         }
     }
 
-    milesInput.addEventListener('input', updateCalculation);
-    rateInput.addEventListener('input', updateCalculation);
+    milesInput.addEventListener('input', updateMilesCalculation);
+    rateInput.addEventListener('input', updateMilesCalculation);
 
     useCalculatedBtn.addEventListener('click', () => {
         const calcValue = calcValueSpan.textContent.replace('$', '');
         document.getElementById('amount').value = calcValue;
+        visualFeedback();
+    });
 
-        // Visual feedback
+    // Product Calculator
+    const pieceCountInput = document.getElementById('pieceCount');
+    const ratePerPieceInput = document.getElementById('ratePerPiece');
+    const productDescInput = document.getElementById('productDescription');
+    const useCalculatedProductBtn = document.getElementById('useCalculatedProduct');
+    const calcProductValueSpan = document.querySelector('#calculatedProductAmount .calc-value');
+
+    function updateProductCalculation() {
+        const pieces = parseFloat(pieceCountInput.value) || 0;
+        const rate = parseFloat(ratePerPieceInput.value) || 0;
+        const total = pieces * rate;
+
+        if (total > 0) {
+            calcProductValueSpan.textContent = `$${total.toFixed(2)}`;
+            useCalculatedProductBtn.disabled = false;
+        } else {
+            calcProductValueSpan.textContent = '$0.00';
+            useCalculatedProductBtn.disabled = true;
+        }
+    }
+
+    pieceCountInput.addEventListener('input', updateProductCalculation);
+    ratePerPieceInput.addEventListener('input', updateProductCalculation);
+
+    useCalculatedProductBtn.addEventListener('click', () => {
+        const calcValue = calcProductValueSpan.textContent.replace('$', '');
+        document.getElementById('amount').value = calcValue;
+        visualFeedback();
+    });
+
+    function visualFeedback() {
         const amountInput = document.getElementById('amount');
         amountInput.style.background = '#e8f5e9';
         setTimeout(() => {
             amountInput.style.background = '';
         }, 1000);
-    });
+    }
 }
 
 // Expense Tracking Functions

@@ -102,25 +102,60 @@
                 </div>
             </div>
 
-            <!-- Mile/Rate Calculator -->
+            <!-- Calculator Tabs -->
             <div class="section calculator-section">
-                <h2>Mile/Rate Calculator (Optional)</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Miles Driven:</label>
-                        <input type="number" step="0.1" id="miles" placeholder="450">
+                <h2>Payment Calculator (Optional)</h2>
+
+                <!-- Calculator Type Selector -->
+                <div class="calculator-tabs">
+                    <button type="button" class="calc-tab active" data-calc="miles">Miles/Rate</button>
+                    <button type="button" class="calc-tab" data-calc="product">Product Count</button>
+                </div>
+
+                <!-- Mile/Rate Calculator -->
+                <div id="milesCalculator" class="calculator-panel active">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Miles Driven:</label>
+                            <input type="number" step="0.1" id="miles" placeholder="450">
+                        </div>
+                        <div class="form-group">
+                            <label>Rate per Mile ($):</label>
+                            <input type="number" step="0.01" id="ratePerMile" placeholder="2.50">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Rate per Mile ($):</label>
-                        <input type="number" step="0.01" id="ratePerMile" placeholder="2.50">
+                    <div class="calculator-result">
+                        <div class="calculated-amount" id="calculatedAmount">
+                            <span class="calc-label">Calculated Amount:</span>
+                            <span class="calc-value">$0.00</span>
+                        </div>
+                        <button type="button" class="btn-use-calculated" id="useCalculated" disabled>Use This Amount</button>
                     </div>
                 </div>
-                <div class="calculator-result">
-                    <div class="calculated-amount" id="calculatedAmount">
-                        <span class="calc-label">Calculated Amount:</span>
-                        <span class="calc-value">$0.00</span>
+
+                <!-- Product Count Calculator -->
+                <div id="productCalculator" class="calculator-panel">
+                    <div class="form-group">
+                        <label>Product Description:</label>
+                        <input type="text" id="productDescription" placeholder="e.g., Pallets of Lumber, Boxes of Electronics">
                     </div>
-                    <button type="button" class="btn-use-calculated" id="useCalculated" disabled>Use This Amount</button>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Piece Count:</label>
+                            <input type="number" step="1" id="pieceCount" placeholder="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Rate per Piece ($):</label>
+                            <input type="number" step="0.01" id="ratePerPiece" placeholder="5.00">
+                        </div>
+                    </div>
+                    <div class="calculator-result">
+                        <div class="calculated-amount" id="calculatedProductAmount">
+                            <span class="calc-label">Calculated Amount:</span>
+                            <span class="calc-value">$0.00</span>
+                        </div>
+                        <button type="button" class="btn-use-calculated" id="useCalculatedProduct" disabled>Use This Amount</button>
+                    </div>
                 </div>
             </div>
 
