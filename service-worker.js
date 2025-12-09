@@ -1,10 +1,11 @@
-const CACHE_NAME = 'truckinvoice-v2';
+const CACHE_NAME = 'truckinvoice-v3';
 const urlsToCache = [
   './index.html',
   './style.css',
   './script.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js'
+  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js',
+  'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
 ];
 
 // Install service worker and cache files

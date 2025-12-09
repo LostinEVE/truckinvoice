@@ -20,6 +20,7 @@
         <!-- Navigation Tabs -->
         <div class="nav-tabs">
             <button type="button" id="newInvoiceBtn" class="nav-tab active">New Invoice</button>
+            <button type="button" id="receiptUploadBtn" class="nav-tab">Upload Receipt</button>
             <button type="button" id="historyBtn" class="nav-tab">Invoice History</button>
             <button type="button" id="expensesBtn" class="nav-tab">Expenses</button>
             <button type="button" id="dashboardBtn" class="nav-tab">Dashboard</button>
@@ -114,6 +115,72 @@
 
             <button type="submit" class="btn-generate">Generate Invoice PDF</button>
         </form>
+        </div>
+
+        <!-- Receipt Upload View -->
+        <div id="receiptUploadView" class="view">
+            <form id="receiptForm" class="receipt-form">
+                <div class="section">
+                    <h2>Upload Receipt</h2>
+                    <p class="section-description">Take a photo or upload an image of your receipt to automatically extract data and populate your invoice form.</p>
+                    
+                    <div class="form-group">
+                        <label>Select Receipt Image:</label>
+                        <div class="receipt-upload-wrapper">
+                            <input type="file" id="receiptImage" accept="image/*" required>
+                            <div class="file-input-label">📷 Choose Image or Take Photo</div>
+                        </div>
+                    </div>
+
+                    <div id="receiptPreview" class="receipt-preview hidden">
+                        <img id="previewImage" alt="Receipt Preview">
+                    </div>
+
+                    <div id="ocrStatus" class="ocr-status hidden">
+                        <div class="status-spinner"></div>
+                        <p id="ocrMessage">Processing receipt with OCR...</p>
+                    </div>
+
+                    <div id="ocrResults" class="ocr-results hidden">
+                        <h3>Extracted Data:</h3>
+                        <div class="extracted-data">
+                            <div class="extracted-item">
+                                <label>Vendor/Company:</label>
+                                <input type="text" id="extractedVendor" readonly>
+                            </div>
+                            <div class="extracted-item">
+                                <label>Amount:</label>
+                                <input type="text" id="extractedAmount" readonly>
+                            </div>
+                            <div class="extracted-item">
+                                <label>Date:</label>
+                                <input type="text" id="extractedDate" readonly>
+                            </div>
+                            <div class="extracted-item">
+                                <label>Category:</label>
+                                <select id="extractedCategory" title="Select expense category">
+                                    <option value="">Select Category...</option>
+                                    <option value="fuel">Fuel</option>
+                                    <option value="maintenance">Maintenance & Repairs</option>
+                                    <option value="tolls">Tolls & Parking</option>
+                                    <option value="food">Food & Meals</option>
+                                    <option value="insurance">Insurance</option>
+                                    <option value="permits">Permits & Licenses</option>
+                                    <option value="truck_payment">Truck Payment/Lease</option>
+                                    <option value="supplies">Supplies</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="button-group">
+                            <button type="button" id="addAsExpenseBtn" class="btn-generate">Add as Expense</button>
+                            <button type="button" id="useInInvoiceBtn" class="btn-secondary">Use in Invoice</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-generate hidden" id="processReceiptBtn">Process Receipt</button>
+                </div>
+            </form>
         </div>
 
         <!-- Invoice History View -->
@@ -235,6 +302,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@ window.addEventListener('DOMContentLoaded', () => {
     loadCompanyInfo();
     setTodayAsDefault();
     setupNavigation();
+    setupReceiptUpload();
     setupQuickFill();
     setupCalculator();
     setupExpenses();
@@ -314,19 +315,21 @@ function getInvoiceHistory() {
 
 function setupNavigation() {
     const newInvoiceBtn = document.getElementById('newInvoiceBtn');
+    const receiptUploadBtn = document.getElementById('receiptUploadBtn');
     const historyBtn = document.getElementById('historyBtn');
     const expensesBtn = document.getElementById('expensesBtn');
     const dashboardBtn = document.getElementById('dashboardBtn');
 
     const invoiceFormView = document.getElementById('invoiceFormView');
+    const receiptUploadView = document.getElementById('receiptUploadView');
     const historyView = document.getElementById('historyView');
     const expensesView = document.getElementById('expensesView');
     const dashboardView = document.getElementById('dashboardView');
 
     const searchInput = document.getElementById('searchHistory');
 
-    const allButtons = [newInvoiceBtn, historyBtn, expensesBtn, dashboardBtn];
-    const allViews = [invoiceFormView, historyView, expensesView, dashboardView];
+    const allButtons = [newInvoiceBtn, receiptUploadBtn, historyBtn, expensesBtn, dashboardBtn];
+    const allViews = [invoiceFormView, receiptUploadView, historyView, expensesView, dashboardView];
 
     function switchView(activeView, activeBtn) {
         allViews.forEach(view => view.classList.remove('active'));
@@ -338,6 +341,10 @@ function setupNavigation() {
     newInvoiceBtn.addEventListener('click', () => {
         switchView(invoiceFormView, newInvoiceBtn);
         populateCustomerList();
+    });
+
+    receiptUploadBtn.addEventListener('click', () => {
+        switchView(receiptUploadView, receiptUploadBtn);
     });
 
     historyBtn.addEventListener('click', () => {
@@ -782,3 +789,218 @@ function displayMonthlySummary(invoices, expenses, year) {
         </div>
     `).join('');
 }
+
+// ===== PHASE 2: Receipt Upload and OCR Functions =====
+
+// Initialize receipt uploader
+function setupReceiptUpload() {
+    const receiptInput = document.getElementById('receiptImage');
+    const receiptForm = document.getElementById('receiptForm');
+    const previewImage = document.getElementById('previewImage');
+    const receiptPreview = document.getElementById('receiptPreview');
+    const processBtn = document.getElementById('processReceiptBtn');
+    const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
+    const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
+
+    // Handle file selection and preview
+    receiptInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                previewImage.src = event.target.result;
+                receiptPreview.classList.remove('hidden');
+                processBtn.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Handle receipt processing
+    receiptForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const file = receiptInput.files[0];
+        if (file) {
+            processReceiptWithOCR(file);
+        }
+    });
+
+    // Add as expense button
+    addAsExpenseBtn.addEventListener('click', () => {
+        const vendor = document.getElementById('extractedVendor').value || 'Receipt Upload';
+        const amount = parseFloat(document.getElementById('extractedAmount').value) || 0;
+        const date = document.getElementById('extractedDate').value || new Date().toISOString().split('T')[0];
+        const category = document.getElementById('extractedCategory').value || 'other';
+
+        // Add to expenses
+        const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        const newExpense = {
+            id: Date.now(),
+            date: date,
+            amount: amount,
+            category: category,
+            vendor: vendor,
+            notes: 'Added from receipt upload'
+        };
+        expenses.push(newExpense);
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+
+        alert('Expense added successfully!');
+        resetReceiptForm();
+    });
+
+    // Use in invoice button
+    useInInvoiceBtn.addEventListener('click', () => {
+        const vendor = document.getElementById('extractedVendor').value;
+        const amount = parseFloat(document.getElementById('extractedAmount').value) || 0;
+
+        // Switch to invoice form and populate
+        document.getElementById('receiptUploadBtn').classList.remove('active');
+        document.getElementById('invoiceFormView').classList.add('active');
+        document.getElementById('newInvoiceBtn').classList.add('active');
+
+        // Populate with extracted data
+        if (vendor) {
+            document.getElementById('customerName').value = vendor;
+        }
+        document.getElementById('amount').value = amount.toFixed(2);
+
+        // Hide receipt view
+        document.getElementById('receiptUploadView').classList.remove('active');
+
+        resetReceiptForm();
+    });
+}
+
+// Process receipt image with Tesseract OCR
+async function processReceiptWithOCR(file) {
+    const ocrStatus = document.getElementById('ocrStatus');
+    const ocrResults = document.getElementById('ocrResults');
+    const ocrMessage = document.getElementById('ocrMessage');
+    const processBtn = document.getElementById('processReceiptBtn');
+
+    // Show processing status
+    ocrStatus.classList.remove('hidden');
+    ocrResults.classList.add('hidden');
+    processBtn.classList.add('hidden');
+    ocrMessage.textContent = 'Processing receipt with OCR... This may take a moment.';
+
+    try {
+        // Read file as data URL
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const imageData = e.target.result;
+
+            try {
+                // Use Tesseract to extract text
+                const result = await Tesseract.recognize(
+                    imageData,
+                    'eng',
+                    {
+                        logger: (m) => {
+                            if (m.status === 'recognizing') {
+                                ocrMessage.textContent = `Processing... ${Math.round(m.progress * 100)}%`;
+                            }
+                        }
+                    }
+                );
+
+                const extractedText = result.data.text;
+                console.log('Extracted text:', extractedText);
+
+                // Parse extracted data
+                const parsedData = parseReceiptData(extractedText);
+
+                // Display results
+                document.getElementById('extractedVendor').value = parsedData.vendor;
+                document.getElementById('extractedAmount').value = parsedData.amount;
+                document.getElementById('extractedDate').value = parsedData.date;
+                document.getElementById('extractedCategory').value = parsedData.category;
+
+                ocrStatus.classList.add('hidden');
+                ocrResults.classList.remove('hidden');
+            } catch (error) {
+                console.error('OCR Error:', error);
+                ocrMessage.textContent = 'Error processing image. Please try again with a clearer photo.';
+            }
+        };
+        reader.readAsDataURL(file);
+    } catch (error) {
+        console.error('File reading error:', error);
+        alert('Error reading file. Please try again.');
+    }
+}
+
+// Parse receipt data from OCR text
+function parseReceiptData(text) {
+    // Default values
+    let vendor = 'Unknown Vendor';
+    let amount = '0.00';
+    let date = new Date().toISOString().split('T')[0];
+    let category = 'other';
+
+    // Convert text to uppercase for easier matching
+    const upperText = text.toUpperCase();
+    const lines = text.split('\n');
+
+    // Try to extract vendor name (usually at the top)
+    if (lines.length > 0) {
+        vendor = lines[0].trim() || vendor;
+    }
+
+    // Look for dollar amounts
+    const amountPattern = /\$\s*(\d+\.?\d*)/g;
+    const amounts = [];
+    let match;
+    while ((match = amountPattern.exec(text)) !== null) {
+        amounts.push(parseFloat(match[1]));
+    }
+    
+    // Use the largest amount as the total
+    if (amounts.length > 0) {
+        amount = Math.max(...amounts).toFixed(2);
+    }
+
+    // Try to extract date (common formats)
+    const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
+    const dateMatch = datePattern.exec(text);
+    if (dateMatch) {
+        const month = dateMatch[1].padStart(2, '0');
+        const day = dateMatch[2].padStart(2, '0');
+        const year = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
+        date = `${year}-${month}-${day}`;
+    }
+
+    // Categorize based on keywords
+    if (upperText.includes('FUEL') || upperText.includes('GAS') || upperText.includes('SHELL') || 
+        upperText.includes('PILOT') || upperText.includes('LOVE\'S') || upperText.includes('SPEEDWAY')) {
+        category = 'fuel';
+    } else if (upperText.includes('MAINTENANCE') || upperText.includes('OIL') || 
+               upperText.includes('TIRE') || upperText.includes('REPAIR')) {
+        category = 'maintenance';
+    } else if (upperText.includes('TOLL') || upperText.includes('PARKING')) {
+        category = 'tolls';
+    } else if (upperText.includes('FOOD') || upperText.includes('RESTAURANT') || 
+               upperText.includes('DINER') || upperText.includes('CAFE')) {
+        category = 'food';
+    } else if (upperText.includes('INSURANCE')) {
+        category = 'insurance';
+    }
+
+    return {
+        vendor: vendor,
+        amount: amount,
+        date: date,
+        category: category
+    };
+}
+
+// Reset receipt form
+function resetReceiptForm() {
+    document.getElementById('receiptForm').reset();
+    document.getElementById('receiptPreview').classList.add('hidden');
+    document.getElementById('ocrStatus').classList.add('hidden');
+    document.getElementById('ocrResults').classList.add('hidden');
+    document.getElementById('processReceiptBtn').classList.add('hidden');
+}
+
