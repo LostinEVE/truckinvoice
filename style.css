@@ -107,19 +107,23 @@ input:focus {
     gap: 10px;
     margin-bottom: 20px;
     border-bottom: 2px solid #e0e0e0;
+    overflow-x: auto;
+    scroll-behavior: smooth;
 }
 
 .nav-tab {
     flex: 1;
-    padding: 12px 20px;
+    min-width: 80px;
+    padding: 12px 15px;
     background: transparent;
     border: none;
     border-bottom: 3px solid transparent;
     color: #666;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
+    white-space: nowrap;
 }
 
 .nav-tab:hover {
@@ -704,7 +708,22 @@ select:focus {
 
 @media (max-width: 600px) {
     .container {
-        padding: 20px;
+        padding: 15px;
+        margin: 0;
+    }
+
+    h1 {
+        font-size: 24px;
+        margin-bottom: 3px;
+    }
+
+    .subtitle {
+        font-size: 13px;
+    }
+
+    .section {
+        margin-bottom: 20px;
+        padding: 15px;
     }
 
     .form-row {
@@ -713,7 +732,8 @@ select:focus {
 
     .nav-tab {
         font-size: 12px;
-        padding: 8px;
+        padding: 8px 10px;
+        min-width: 70px;
     }
 
     .history-header {
@@ -795,6 +815,7 @@ select:focus {
 .receipt-upload-wrapper {
     position: relative;
     margin-top: 10px;
+    cursor: pointer;
 }
 
 #receiptImage {
@@ -803,7 +824,7 @@ select:focus {
 
 .file-input-label {
     display: block;
-    padding: 20px;
+    padding: 25px;
     border: 2px dashed #667eea;
     border-radius: 8px;
     text-align: center;
@@ -812,6 +833,9 @@ select:focus {
     transition: all 0.3s ease;
     font-weight: 600;
     color: #667eea;
+    font-size: 16px;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .file-input-label:hover {
@@ -950,5 +974,19 @@ select:focus {
     .status-spinner {
         width: 40px;
         height: 40px;
+    }
+
+    .file-input-label {
+        padding: 20px;
+        font-size: 14px;
+    }
+
+    .receipt-preview img {
+        max-height: 70vh;
+        object-fit: contain;
+    }
+
+    .extracted-item {
+        margin-bottom: 10px;
     }
 }

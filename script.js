@@ -801,6 +801,18 @@ function setupReceiptUpload() {
     const processBtn = document.getElementById('processReceiptBtn');
     const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
     const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
+    const fileInputLabel = document.querySelector('.file-input-label');
+
+    // Make the file input label clickable and enable camera on mobile
+    fileInputLabel.addEventListener('click', () => {
+        // Check if on mobile and support camera capture
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            // Set to camera capture mode
+            receiptInput.setAttribute('capture', 'environment');
+        }
+        receiptInput.click();
+    });
 
     // Handle file selection and preview
     receiptInput.addEventListener('change', (e) => {
