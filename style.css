@@ -166,13 +166,13 @@ input:focus {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* View Management -->
+/* View Management */
 .view {
-    display: none;
+    display: none !important;
 }
 
 .view.active {
-    display: block;
+    display: block !important;
 }
 
 /* History View */

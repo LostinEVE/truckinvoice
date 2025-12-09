@@ -334,9 +334,13 @@ function setupNavigation() {
 
     function switchView(activeView, activeBtn) {
         console.log('Switching to view:', activeView.id);
-        allViews.forEach(view => view.classList.remove('active'));
+        allViews.forEach(view => {
+            view.classList.remove('active');
+            view.style.display = 'none';
+        });
         allButtons.forEach(btn => btn.classList.remove('active'));
         activeView.classList.add('active');
+        activeView.style.display = 'block';
         activeBtn.classList.add('active');
     }
 
