@@ -5,6 +5,7 @@ Generate professional invoices in seconds instead of manually filling out PDFs. 
 ## Features
 
 ### Invoice Generation
+
 - **Auto-saves your company info** (no re-typing)
 - **Auto-fills today's date**
 - Downloads ready-to-upload **PDF and JPG**
@@ -12,12 +13,14 @@ Generate professional invoices in seconds instead of manually filling out PDFs. 
 - Works **offline** (no internet needed)
 
 ### Invoice History & Tracking
+
 - **Automatic history** of all generated invoices
 - **Search and filter** by invoice #, load #, or customer name
 - **Regenerate** any past invoice with one click
 - Delete unwanted history entries
 
 ### Time-Saving Tools
+
 - **Quick Fill for Repeat Customers** - dropdown shows your past customers with one-click auto-fill
 - **Mile/Rate Calculator** - enter miles and rate per mile to automatically calculate payment amount
 - **Responsive design** - works on desktop, tablet, and mobile
@@ -52,6 +55,7 @@ Generate professional invoices in seconds instead of manually filling out PDFs. 
 ## For Distribution
 
 This app is **carrier-agnostic** and works for:
+
 - J.B. Hunt
 - Schneider
 - Werner

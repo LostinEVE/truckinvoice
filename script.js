@@ -21,6 +21,8 @@ window.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
     setupQuickFill();
     setupCalculator();
+    setupExpenses();
+    setupDashboard();
 });
 
 // Set today's date as default
@@ -313,28 +315,44 @@ function getInvoiceHistory() {
 function setupNavigation() {
     const newInvoiceBtn = document.getElementById('newInvoiceBtn');
     const historyBtn = document.getElementById('historyBtn');
+    const expensesBtn = document.getElementById('expensesBtn');
+    const dashboardBtn = document.getElementById('dashboardBtn');
+
     const invoiceFormView = document.getElementById('invoiceFormView');
     const historyView = document.getElementById('historyView');
+    const expensesView = document.getElementById('expensesView');
+    const dashboardView = document.getElementById('dashboardView');
+
     const searchInput = document.getElementById('searchHistory');
 
+    const allButtons = [newInvoiceBtn, historyBtn, expensesBtn, dashboardBtn];
+    const allViews = [invoiceFormView, historyView, expensesView, dashboardView];
+
+    function switchView(activeView, activeBtn) {
+        allViews.forEach(view => view.classList.remove('active'));
+        allButtons.forEach(btn => btn.classList.remove('active'));
+        activeView.classList.add('active');
+        activeBtn.classList.add('active');
+    }
+
     newInvoiceBtn.addEventListener('click', () => {
-        invoiceFormView.classList.add('active');
-        historyView.classList.remove('active');
-        newInvoiceBtn.classList.add('active');
-        historyBtn.classList.remove('active');
+        switchView(invoiceFormView, newInvoiceBtn);
+        populateCustomerList();
     });
 
     historyBtn.addEventListener('click', () => {
-        historyView.classList.add('active');
-        invoiceFormView.classList.remove('active');
-        historyBtn.classList.add('active');
-        newInvoiceBtn.classList.remove('active');
+        switchView(historyView, historyBtn);
         displayHistory();
     });
 
-    newInvoiceBtn.addEventListener('click', () => {
-        // Refresh customer list when returning to form
-        populateCustomerList();
+    expensesBtn.addEventListener('click', () => {
+        switchView(expensesView, expensesBtn);
+        displayExpenses();
+    });
+
+    dashboardBtn.addEventListener('click', () => {
+        switchView(dashboardView, dashboardBtn);
+        updateDashboard();
     });
 
     searchInput.addEventListener('input', (e) => {
@@ -493,4 +511,274 @@ function setupCalculator() {
             amountInput.style.background = '';
         }, 1000);
     });
+}
+
+// Expense Tracking Functions
+function setupExpenses() {
+    const expenseForm = document.getElementById('expenseForm');
+    const expenseDate = document.getElementById('expenseDate');
+    const searchExpenses = document.getElementById('searchExpenses');
+
+    // Set today's date as default for expenses
+    expenseDate.value = new Date().toISOString().split('T')[0];
+
+    expenseForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const expense = {
+            id: Date.now().toString(),
+            date: document.getElementById('expenseDate').value,
+            amount: parseFloat(document.getElementById('expenseAmount').value).toFixed(2),
+            category: document.getElementById('expenseCategory').value,
+            vendor: document.getElementById('expenseVendor').value,
+            notes: document.getElementById('expenseNotes').value,
+            timestamp: new Date().toISOString()
+        };
+
+        saveExpense(expense);
+        expenseForm.reset();
+        expenseDate.value = new Date().toISOString().split('T')[0];
+        displayExpenses();
+        alert('Expense added successfully!');
+    });
+
+    searchExpenses.addEventListener('input', (e) => {
+        displayExpenses(e.target.value);
+    });
+}
+
+function saveExpense(expense) {
+    const expenses = getExpenses();
+    expenses.unshift(expense);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+}
+
+function getExpenses() {
+    const expenses = localStorage.getItem('expenses');
+    return expenses ? JSON.parse(expenses) : [];
+}
+
+function displayExpenses(searchTerm = '') {
+    const expenses = getExpenses();
+    const expensesList = document.getElementById('expensesList');
+
+    let filteredExpenses = expenses;
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredExpenses = expenses.filter(exp =>
+            exp.vendor.toLowerCase().includes(term) ||
+            exp.category.toLowerCase().includes(term) ||
+            exp.notes.toLowerCase().includes(term)
+        );
+    }
+
+    if (filteredExpenses.length === 0) {
+        expensesList.innerHTML = '<div class="no-history">No expenses found</div>';
+        return;
+    }
+
+    const categoryLabels = {
+        fuel: 'Fuel',
+        maintenance: 'Maintenance & Repairs',
+        tolls: 'Tolls & Parking',
+        food: 'Food & Meals',
+        insurance: 'Insurance',
+        permits: 'Permits & Licenses',
+        truck_payment: 'Truck Payment/Lease',
+        supplies: 'Supplies',
+        other: 'Other'
+    };
+
+    expensesList.innerHTML = filteredExpenses.map(expense => `
+        <div class="history-item expense-item">
+            <div class="history-header">
+                <div class="history-title">
+                    <strong>${categoryLabels[expense.category]}</strong>
+                    <span class="history-date">${new Date(expense.date).toLocaleDateString()}</span>
+                </div>
+                <div class="history-amount expense-amount">$${expense.amount}</div>
+            </div>
+            <div class="history-details">
+                <div><strong>Vendor:</strong> ${expense.vendor}</div>
+                ${expense.notes ? `<div><strong>Notes:</strong> ${expense.notes}</div>` : ''}
+            </div>
+            <div class="history-actions">
+                <button class="btn-delete" onclick="deleteExpense('${expense.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function deleteExpense(id) {
+    if (confirm('Are you sure you want to delete this expense?')) {
+        let expenses = getExpenses();
+        expenses = expenses.filter(exp => exp.id !== id);
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        displayExpenses();
+        updateDashboard();
+    }
+}
+
+// Dashboard Functions
+function setupDashboard() {
+    const yearSelect = document.getElementById('dashboardYear');
+
+    // Populate year selector
+    populateYearSelector();
+
+    yearSelect.addEventListener('change', () => {
+        updateDashboard();
+    });
+
+    updateDashboard();
+}
+
+function populateYearSelector() {
+    const yearSelect = document.getElementById('dashboardYear');
+    const currentYear = new Date().getFullYear();
+    const invoices = getInvoiceHistory();
+    const expenses = getExpenses();
+
+    // Get all unique years from invoices and expenses
+    const years = new Set([currentYear]);
+
+    invoices.forEach(inv => {
+        const year = new Date(inv.timestamp).getFullYear();
+        years.add(year);
+    });
+
+    expenses.forEach(exp => {
+        const year = new Date(exp.date).getFullYear();
+        years.add(year);
+    });
+
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+    yearSelect.innerHTML = sortedYears.map(year =>
+        `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`
+    ).join('');
+}
+
+function updateDashboard() {
+    const selectedYear = parseInt(document.getElementById('dashboardYear').value);
+    const invoices = getInvoiceHistory();
+    const expenses = getExpenses();
+
+    // Filter by selected year
+    const yearInvoices = invoices.filter(inv =>
+        new Date(inv.timestamp).getFullYear() === selectedYear
+    );
+    const yearExpenses = expenses.filter(exp =>
+        new Date(exp.date).getFullYear() === selectedYear
+    );
+
+    // Calculate totals
+    const totalIncome = yearInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    const totalExpenses = yearExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+    const netProfit = totalIncome - totalExpenses;
+
+    // Update dashboard cards
+    document.getElementById('ytdIncome').textContent = `$${totalIncome.toFixed(2)}`;
+    document.getElementById('ytdExpenses').textContent = `$${totalExpenses.toFixed(2)}`;
+    document.getElementById('ytdProfit').textContent = `$${netProfit.toFixed(2)}`;
+
+    // Update profit card color
+    const profitCard = document.querySelector('.profit-card .card-value');
+    profitCard.style.color = netProfit >= 0 ? '#4caf50' : '#dc3545';
+
+    // Display expense breakdown
+    displayExpenseBreakdown(yearExpenses);
+
+    // Display monthly summary
+    displayMonthlySummary(yearInvoices, yearExpenses, selectedYear);
+}
+
+function displayExpenseBreakdown(expenses) {
+    const breakdownDiv = document.getElementById('expenseBreakdown');
+
+    const categoryLabels = {
+        fuel: 'Fuel',
+        maintenance: 'Maintenance & Repairs',
+        tolls: 'Tolls & Parking',
+        food: 'Food & Meals',
+        insurance: 'Insurance',
+        permits: 'Permits & Licenses',
+        truck_payment: 'Truck Payment/Lease',
+        supplies: 'Supplies',
+        other: 'Other'
+    };
+
+    // Group by category
+    const breakdown = {};
+    expenses.forEach(exp => {
+        if (!breakdown[exp.category]) {
+            breakdown[exp.category] = 0;
+        }
+        breakdown[exp.category] += parseFloat(exp.amount);
+    });
+
+    if (Object.keys(breakdown).length === 0) {
+        breakdownDiv.innerHTML = '<div class="no-data">No expense data available</div>';
+        return;
+    }
+
+    // Sort by amount descending
+    const sorted = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+
+    breakdownDiv.innerHTML = sorted.map(([category, amount]) => `
+        <div class="breakdown-item">
+            <div class="breakdown-category">${categoryLabels[category]}</div>
+            <div class="breakdown-amount">$${amount.toFixed(2)}</div>
+        </div>
+    `).join('');
+}
+
+function displayMonthlySummary(invoices, expenses, year) {
+    const summaryDiv = document.getElementById('monthlySummary');
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyData = months.map((month, index) => {
+        const monthInvoices = invoices.filter(inv => {
+            const date = new Date(inv.timestamp);
+            return date.getMonth() === index;
+        });
+        const monthExpenses = expenses.filter(exp => {
+            const date = new Date(exp.date);
+            return date.getMonth() === index;
+        });
+
+        const income = monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+        const expense = monthExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+        const profit = income - expense;
+
+        return { month, income, expense, profit };
+    });
+
+    // Only show months with data
+    const dataMonths = monthlyData.filter(m => m.income > 0 || m.expense > 0);
+
+    if (dataMonths.length === 0) {
+        summaryDiv.innerHTML = '<div class="no-data">No monthly data available</div>';
+        return;
+    }
+
+    summaryDiv.innerHTML = dataMonths.reverse().map(data => `
+        <div class="monthly-item">
+            <div class="monthly-month">${data.month}</div>
+            <div class="monthly-details">
+                <div class="monthly-row">
+                    <span>Income:</span>
+                    <span class="income-value">$${data.income.toFixed(2)}</span>
+                </div>
+                <div class="monthly-row">
+                    <span>Expenses:</span>
+                    <span class="expense-value">$${data.expense.toFixed(2)}</span>
+                </div>
+                <div class="monthly-row monthly-profit">
+                    <span>Profit:</span>
+                    <span class="profit-value" style="color: ${data.profit >= 0 ? '#4caf50' : '#dc3545'}">$${data.profit.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
 }

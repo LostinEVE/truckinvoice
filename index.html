@@ -21,6 +21,8 @@
         <div class="nav-tabs">
             <button type="button" id="newInvoiceBtn" class="nav-tab active">New Invoice</button>
             <button type="button" id="historyBtn" class="nav-tab">Invoice History</button>
+            <button type="button" id="expensesBtn" class="nav-tab">Expenses</button>
+            <button type="button" id="dashboardBtn" class="nav-tab">Dashboard</button>
         </div>
 
         <!-- New Invoice View -->
@@ -121,6 +123,112 @@
             </div>
             <div id="historyList" class="history-list">
                 <div class="no-history">No invoices yet. Generate your first invoice!</div>
+            </div>
+        </div>
+
+        <!-- Expenses View -->
+        <div id="expensesView" class="view">
+            <form id="expenseForm" class="expense-form">
+                <div class="section">
+                    <h2>Add Expense</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date:</label>
+                            <input type="date" id="expenseDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount ($):</label>
+                            <input type="number" step="0.01" id="expenseAmount" placeholder="50.00" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Category:</label>
+                            <select id="expenseCategory" title="Select expense category" required>
+                                <option value="">Select Category...</option>
+                                <option value="fuel">Fuel</option>
+                                <option value="maintenance">Maintenance & Repairs</option>
+                                <option value="tolls">Tolls & Parking</option>
+                                <option value="food">Food & Meals</option>
+                                <option value="insurance">Insurance</option>
+                                <option value="permits">Permits & Licenses</option>
+                                <option value="truck_payment">Truck Payment/Lease</option>
+                                <option value="supplies">Supplies</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor/Location:</label>
+                            <input type="text" id="expenseVendor" placeholder="Pilot Flying J" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (Optional):</label>
+                        <input type="text" id="expenseNotes" placeholder="Additional details...">
+                    </div>
+                    <button type="submit" class="btn-generate">Add Expense</button>
+                </div>
+            </form>
+
+            <div class="expense-history-section">
+                <div class="history-header-section">
+                    <input type="text" id="searchExpenses" placeholder="Search expenses..." class="search-input">
+                </div>
+                <div id="expensesList" class="history-list">
+                    <div class="no-history">No expenses yet. Add your first expense!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboardView" class="view">
+            <div class="dashboard-header">
+                <h2>Financial Dashboard</h2>
+                <div class="year-selector">
+                    <label>Year:</label>
+                    <select id="dashboardYear" title="Select year for dashboard">
+                        <!-- Populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="dashboard-cards">
+                <div class="dashboard-card income-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <div class="card-label">Total Income (YTD)</div>
+                        <div class="card-value" id="ytdIncome">$0.00</div>
+                    </div>
+                </div>
+                <div class="dashboard-card expense-card">
+                    <div class="card-icon">💰</div>
+                    <div class="card-content">
+                        <div class="card-label">Total Expenses (YTD)</div>
+                        <div class="card-value" id="ytdExpenses">$0.00</div>
+                    </div>
+                </div>
+                <div class="dashboard-card profit-card">
+                    <div class="card-icon">📈</div>
+                    <div class="card-content">
+                        <div class="card-label">Net Profit (YTD)</div>
+                        <div class="card-value" id="ytdProfit">$0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-breakdown">
+                <div class="section">
+                    <h3>Expense Breakdown</h3>
+                    <div id="expenseBreakdown" class="breakdown-list">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="section">
+                    <h3>Monthly Summary</h3>
+                    <div id="monthlySummary" class="monthly-summary">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
