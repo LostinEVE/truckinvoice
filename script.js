@@ -333,6 +333,7 @@ function setupNavigation() {
     const allViews = [invoiceFormView, receiptUploadView, historyView, expensesView, dashboardView];
 
     function switchView(activeView, activeBtn) {
+        console.log('Switching to view:', activeView.id);
         allViews.forEach(view => view.classList.remove('active'));
         allButtons.forEach(btn => btn.classList.remove('active'));
         activeView.classList.add('active');
@@ -340,63 +341,60 @@ function setupNavigation() {
     }
 
     // Handle dropdown navigation
-    navDropdown.addEventListener('change', (e) => {
-        const value = e.target.value;
-        switch(value) {
-            case 'invoice':
-                switchView(invoiceFormView, newInvoiceBtn);
-                populateCustomerList();
-                navDropdown.value = 'invoice';
-                break;
-            case 'receipt':
-                switchView(receiptUploadView, receiptUploadBtn);
-                navDropdown.value = 'receipt';
-                break;
-            case 'history':
-                switchView(historyView, historyBtn);
-                displayHistory();
-                navDropdown.value = 'history';
-                break;
-            case 'expenses':
-                switchView(expensesView, expensesBtn);
-                displayExpenses();
-                navDropdown.value = 'expenses';
-                break;
-            case 'dashboard':
-                switchView(dashboardView, dashboardBtn);
-                updateDashboard();
-                navDropdown.value = 'dashboard';
-                break;
-        }
-    });
+    if (navDropdown) {
+        navDropdown.addEventListener('change', (e) => {
+            const value = e.target.value;
+            switch(value) {
+                case 'invoice':
+                    switchView(invoiceFormView, newInvoiceBtn);
+                    populateCustomerList();
+                    break;
+                case 'receipt':
+                    switchView(receiptUploadView, receiptUploadBtn);
+                    break;
+                case 'history':
+                    switchView(historyView, historyBtn);
+                    displayHistory();
+                    break;
+                case 'expenses':
+                    switchView(expensesView, expensesBtn);
+                    displayExpenses();
+                    break;
+                case 'dashboard':
+                    switchView(dashboardView, dashboardBtn);
+                    updateDashboard();
+                    break;
+            }
+        });
+    }
 
     newInvoiceBtn.addEventListener('click', () => {
         switchView(invoiceFormView, newInvoiceBtn);
         populateCustomerList();
-        navDropdown.value = 'invoice';
+        if (navDropdown) navDropdown.value = 'invoice';
     });
 
     receiptUploadBtn.addEventListener('click', () => {
         switchView(receiptUploadView, receiptUploadBtn);
-        navDropdown.value = 'receipt';
+        if (navDropdown) navDropdown.value = 'receipt';
     });
 
     historyBtn.addEventListener('click', () => {
         switchView(historyView, historyBtn);
         displayHistory();
-        navDropdown.value = 'history';
+        if (navDropdown) navDropdown.value = 'history';
     });
 
     expensesBtn.addEventListener('click', () => {
         switchView(expensesView, expensesBtn);
         displayExpenses();
-        navDropdown.value = 'expenses';
+        if (navDropdown) navDropdown.value = 'expenses';
     });
 
     dashboardBtn.addEventListener('click', () => {
         switchView(dashboardView, dashboardBtn);
         updateDashboard();
-        navDropdown.value = 'dashboard';
+        if (navDropdown) navDropdown.value = 'dashboard';
     });
 
     searchInput.addEventListener('input', (e) => {
