@@ -1350,51 +1350,161 @@ function parseReceiptData(text) {
 
     // Convert text to uppercase for easier matching
     const upperText = text.toUpperCase();
-    const lines = text.split('\n');
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
-    // Try to extract vendor name (usually at the top)
-    if (lines.length > 0) {
-        vendor = lines[0].trim() || vendor;
+    console.log('OCR Extracted Text:', text);
+    console.log('Lines:', lines);
+
+    // Extract vendor name - look for common fuel stations and businesses
+    const fuelStations = ['PILOT', 'FLYING J', 'LOVES', "LOVE'S", 'TA', 'TRAVEL CENTER', 'PETRO',
+                          'SHELL', 'EXXON', 'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON',
+                          'VALERO', 'CIRCLE K', 'WAWA', 'SHEETZ', 'CASEY'];
+
+    // Try to find vendor in first few lines
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+        const line = lines[i];
+        const upperLine = line.toUpperCase();
+
+        // Check for fuel stations
+        for (const station of fuelStations) {
+            if (upperLine.includes(station)) {
+                vendor = line;
+                category = 'fuel';
+                break;
+            }
+        }
+
+        // If vendor found, break
+        if (vendor !== 'Unknown Vendor') break;
+
+        // Otherwise, use first non-empty line that's not a number or address
+        if (line.length > 3 && line.length < 50 && !/^\d+$/.test(line) && !upperLine.includes('RECEIPT')) {
+            vendor = line;
+        }
     }
 
-    // Look for dollar amounts
-    const amountPattern = /\$\s*(\d+\.?\d*)/g;
+    // Look for dollar amounts - improved pattern matching
+    const amountPatterns = [
+        /(?:TOTAL|AMOUNT|SALE|PURCHASE|DUE)[\s:]*\$?\s*(\d+\.\d{2})/i,  // "TOTAL: $50.00" or "TOTAL 50.00"
+        /\$\s*(\d+\.\d{2})\s*(?:TOTAL|AMOUNT|SALE|PURCHASE)/i,           // "$50.00 TOTAL"
+        /(?:^|\s)\$\s*(\d+\.\d{2})(?:\s|$)/gm,                           // Standalone "$50.00"
+        /(?:^|\s)(\d+\.\d{2})\s*(?:USD|US)?(?:\s|$)/gm                   // "50.00" or "50.00 USD"
+    ];
+
     const amounts = [];
-    let match;
-    while ((match = amountPattern.exec(text)) !== null) {
-        amounts.push(parseFloat(match[1]));
-    }
-    
-    // Use the largest amount as the total
-    if (amounts.length > 0) {
-        amount = Math.max(...amounts).toFixed(2);
+
+    // Try specific patterns first (TOTAL, AMOUNT, etc.)
+    for (let i = 0; i < 2; i++) {
+        const match = amountPatterns[i].exec(text);
+        if (match) {
+            amounts.push(parseFloat(match[1]));
+        }
     }
 
-    // Try to extract date (common formats)
-    const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
-    const dateMatch = datePattern.exec(text);
-    if (dateMatch) {
-        const month = dateMatch[1].padStart(2, '0');
-        const day = dateMatch[2].padStart(2, '0');
-        const year = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
-        date = `${year}-${month}-${day}`;
+    // If no specific amount found, get all dollar amounts
+    if (amounts.length === 0) {
+        let match;
+        const generalPattern = /\$?\s*(\d{1,5}\.\d{2})/g;
+        while ((match = generalPattern.exec(text)) !== null) {
+            const val = parseFloat(match[1]);
+            // Filter out unrealistic amounts (likely dates or other numbers)
+            if (val > 0.50 && val < 10000) {
+                amounts.push(val);
+            }
+        }
     }
 
-    // Categorize based on keywords
-    if (upperText.includes('FUEL') || upperText.includes('GAS') || upperText.includes('SHELL') || 
-        upperText.includes('PILOT') || upperText.includes('LOVE\'S') || upperText.includes('SPEEDWAY')) {
+    // For fuel receipts, look for "FUEL SALE" or "TOTAL SALE" amounts specifically
+    if (category === 'fuel') {
+        const fuelPattern = /(?:FUEL\s+SALE|TOTAL\s+SALE|PRODUCT\s+TOTAL)[\s:]*\$?\s*(\d+\.\d{2})/i;
+        const fuelMatch = fuelPattern.exec(text);
+        if (fuelMatch) {
+            amount = parseFloat(fuelMatch[1]).toFixed(2);
+        } else if (amounts.length > 0) {
+            // Use the largest amount for fuel (usually the total)
+            amount = Math.max(...amounts).toFixed(2);
+        }
+    } else {
+        // For other receipts, prefer amounts labeled as "TOTAL" or use the largest
+        if (amounts.length > 0) {
+            amount = Math.max(...amounts).toFixed(2);
+        }
+    }
+
+    // Try to extract date (multiple formats)
+    const datePatterns = [
+        /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/,           // MM/DD/YYYY or DD/MM/YYYY
+        /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,             // YYYY/MM/DD
+        /(\d{2})(\d{2})(\d{2,4})/,                           // MMDDYY or MMDDYYYY
+        /(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+(\d{1,2}),?\s+(\d{4})/i  // "JAN 15, 2024"
+    ];
+
+    for (const pattern of datePatterns) {
+        const dateMatch = pattern.exec(text);
+        if (dateMatch) {
+            try {
+                if (dateMatch[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)) {
+                    // Month name format
+                    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                    const monthMatch = dateMatch[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)[0].toUpperCase().substring(0, 3);
+                    const month = String(monthNames.indexOf(monthMatch) + 1).padStart(2, '0');
+                    const day = dateMatch[1].padStart(2, '0');
+                    const year = dateMatch[2];
+                    date = `${year}-${month}-${day}`;
+                } else if (dateMatch[1].length === 4) {
+                    // YYYY/MM/DD format
+                    const year = dateMatch[1];
+                    const month = dateMatch[2].padStart(2, '0');
+                    const day = dateMatch[3].padStart(2, '0');
+                    date = `${year}-${month}-${day}`;
+                } else {
+                    // MM/DD/YYYY or similar
+                    let month = dateMatch[1].padStart(2, '0');
+                    let day = dateMatch[2].padStart(2, '0');
+                    let year = dateMatch[3];
+
+                    if (year.length === 2) {
+                        year = '20' + year;
+                    }
+
+                    // If month > 12, swap month and day (DD/MM format)
+                    if (parseInt(month) > 12) {
+                        [month, day] = [day, month];
+                    }
+
+                    date = `${year}-${month}-${day}`;
+                }
+                break;
+            } catch (e) {
+                console.log('Date parsing error:', e);
+            }
+        }
+    }
+
+    // Enhanced categorization based on keywords
+    if (upperText.includes('FUEL') || upperText.includes('GAS') || upperText.includes('DIESEL') ||
+        upperText.includes('SHELL') || upperText.includes('PILOT') || upperText.includes('FLYING J') ||
+        upperText.includes('LOVE') || upperText.includes('SPEEDWAY') || upperText.includes('TA ') ||
+        upperText.includes('PETRO') || upperText.includes('EXXON') || upperText.includes('CHEVRON') ||
+        upperText.includes('BP ') || upperText.includes('MOBIL') || upperText.includes('MARATHON') ||
+        upperText.includes('VALERO') || upperText.includes('CIRCLE K') || upperText.includes('GALLONS')) {
         category = 'fuel';
-    } else if (upperText.includes('MAINTENANCE') || upperText.includes('OIL') || 
-               upperText.includes('TIRE') || upperText.includes('REPAIR')) {
+    } else if (upperText.includes('MAINTENANCE') || upperText.includes('OIL CHANGE') ||
+               upperText.includes('TIRE') || upperText.includes('REPAIR') || upperText.includes('SERVICE')) {
         category = 'maintenance';
     } else if (upperText.includes('TOLL') || upperText.includes('PARKING')) {
         category = 'tolls';
-    } else if (upperText.includes('FOOD') || upperText.includes('RESTAURANT') || 
-               upperText.includes('DINER') || upperText.includes('CAFE')) {
+    } else if (upperText.includes('FOOD') || upperText.includes('RESTAURANT') ||
+               upperText.includes('DINER') || upperText.includes('CAFE') || upperText.includes('MCDONALD') ||
+               upperText.includes('BURGER') || upperText.includes('SUBWAY') || upperText.includes('WENDY')) {
         category = 'food';
     } else if (upperText.includes('INSURANCE')) {
         category = 'insurance';
+    } else if (upperText.includes('HOTEL') || upperText.includes('MOTEL') || upperText.includes('INN')) {
+        category = 'other';
     }
+
+    console.log('Parsed Data:', { vendor, amount, date, category });
 
     return {
         vendor: vendor,
