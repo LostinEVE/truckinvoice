@@ -100,6 +100,15 @@
                     <label>Amount to be Paid ($):</label>
                     <input type="number" step="0.01" id="amount" placeholder="1000.00" required>
                 </div>
+
+                <!-- Accessories/Additional Charges -->
+                <div class="form-group">
+                    <label>Additional Charges (Optional):</label>
+                    <div id="accessoriesContainer">
+                        <!-- Accessories will be added here dynamically -->
+                    </div>
+                    <button type="button" class="btn-add-accessory" id="addAccessoryBtn">+ Add Charge (Detention, Lumper, etc.)</button>
+                </div>
             </div>
 
             <!-- Calculator Tabs -->
@@ -188,19 +197,20 @@
                     </div>
 
                     <div id="ocrResults" class="ocr-results hidden">
-                        <h3>Extracted Data:</h3>
+                        <h3>Extracted Data (Editable):</h3>
+                        <p class="edit-hint">Review and edit the extracted data below before saving</p>
                         <div class="extracted-data">
                             <div class="extracted-item">
                                 <label>Vendor/Company:</label>
-                                <input type="text" id="extractedVendor" readonly>
+                                <input type="text" id="extractedVendor">
                             </div>
                             <div class="extracted-item">
                                 <label>Amount:</label>
-                                <input type="text" id="extractedAmount" readonly>
+                                <input type="number" step="0.01" id="extractedAmount">
                             </div>
                             <div class="extracted-item">
                                 <label>Date:</label>
-                                <input type="text" id="extractedDate" readonly>
+                                <input type="date" id="extractedDate">
                             </div>
                             <div class="extracted-item">
                                 <label>Category:</label>
@@ -214,6 +224,7 @@
                                     <option value="permits">Permits & Licenses</option>
                                     <option value="truck_payment">Truck Payment/Lease</option>
                                     <option value="supplies">Supplies</option>
+                                    <option value="drivers_pay">Drivers Pay</option>
                                     <option value="other">Other</option>
                                 </select>
                             </div>
@@ -267,6 +278,7 @@
                                 <option value="permits">Permits & Licenses</option>
                                 <option value="truck_payment">Truck Payment/Lease</option>
                                 <option value="supplies">Supplies</option>
+                                <option value="drivers_pay">Drivers Pay</option>
                                 <option value="other">Other</option>
                             </select>
                         </div>
@@ -297,11 +309,25 @@
         <div id="dashboardView" class="view">
             <div class="dashboard-header">
                 <h2>Financial Dashboard</h2>
-                <div class="year-selector">
-                    <label>Year:</label>
-                    <select id="dashboardYear" title="Select year for dashboard">
-                        <!-- Populated by JavaScript -->
-                    </select>
+                <div class="dashboard-controls">
+                    <div class="period-selector">
+                        <label>Period:</label>
+                        <select id="dashboardPeriod" title="Select period for dashboard">
+                            <option value="ytd">Year to Date</option>
+                            <option value="weekly">This Week</option>
+                            <option value="pay-period">Pay Period</option>
+                        </select>
+                    </div>
+                    <div class="year-selector">
+                        <label>Year:</label>
+                        <select id="dashboardYear" title="Select year for dashboard">
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="export-buttons">
+                        <button type="button" id="exportExpenseReport" class="btn-export">Export Expense Report</button>
+                        <button type="button" id="exportProfitLoss" class="btn-export">Export P&L Statement</button>
+                    </div>
                 </div>
             </div>
 

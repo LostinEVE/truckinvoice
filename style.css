@@ -1375,3 +1375,141 @@ select:focus {
         gap: 8px;
     }
 }
+
+/* Accessories/Additional Charges */
+.accessory-item {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border-left: 3px solid #667eea;
+}
+
+.accessory-item .form-row {
+    grid-template-columns: 2fr 1fr auto;
+    align-items: end;
+}
+
+.btn-add-accessory {
+    padding: 10px 15px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+}
+
+.btn-add-accessory:hover {
+    background: #218838;
+}
+
+.btn-remove-accessory {
+    padding: 10px 15px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+    white-space: nowrap;
+}
+
+.btn-remove-accessory:hover {
+    background: #c82333;
+}
+
+/* Receipt Edit Hint */
+.edit-hint {
+    font-size: 13px;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 15px;
+}
+
+/* Dashboard Controls */
+.dashboard-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.period-selector,
+.year-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.period-selector label,
+.year-selector label {
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.btn-export {
+    padding: 10px 15px;
+    background: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s, transform 0.2s;
+    white-space: nowrap;
+}
+
+.btn-export:hover {
+    background: #138496;
+    transform: translateY(-2px);
+}
+
+#dashboardPeriod {
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+#dashboardPeriod:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* Mobile responsive for dashboard controls */
+@media (max-width: 768px) {
+    .dashboard-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .export-buttons {
+        margin-left: 0;
+        flex-direction: column;
+    }
+
+    .btn-export {
+        width: 100%;
+    }
+
+    .accessory-item .form-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .btn-remove-accessory {
+        width: 100%;
+    }
+}

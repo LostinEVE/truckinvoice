@@ -24,6 +24,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setupCalculator();
     setupExpenses();
     setupDashboard();
+    setupAccessories();
 });
 
 // Set today's date as default
@@ -87,6 +88,9 @@ document.getElementById('invoiceForm').addEventListener('submit', (e) => {
     const pieceCount = document.getElementById('pieceCount').value;
     const ratePerPiece = document.getElementById('ratePerPiece').value;
 
+    // Get accessories/additional charges
+    const accessories = getAccessories();
+
     // Generate PDF
     generateInvoicePDF({
         invoiceNumber,
@@ -101,7 +105,8 @@ document.getElementById('invoiceForm').addEventListener('submit', (e) => {
         userEmail,
         productDescription,
         pieceCount,
-        ratePerPiece
+        ratePerPiece,
+        accessories
     });
 });
 
@@ -169,6 +174,17 @@ function generateInvoicePDF(data) {
         } else {
             y += 2;
         }
+    }
+
+    // Add accessories/additional charges if available
+    if (data.accessories && data.accessories.length > 0) {
+        doc.text('Additional Charges:', margin, y);
+        y += lineHeight;
+        data.accessories.forEach(acc => {
+            doc.text(`  - ${acc.description}: $${acc.amount}`, margin, y);
+            y += lineHeight;
+        });
+        y += 2;
     }
 
     doc.text('Amount to be paid:', margin, y);
@@ -268,6 +284,17 @@ function generateInvoiceJPG(data) {
         } else {
             y += 8;
         }
+    }
+
+    // Add accessories/additional charges if available
+    if (data.accessories && data.accessories.length > 0) {
+        ctx.fillText('Additional Charges:', 95, y);
+        y += lineHeight;
+        data.accessories.forEach(acc => {
+            ctx.fillText(`  - ${acc.description}: $${acc.amount}`, 95, y);
+            y += lineHeight;
+        });
+        y += 8;
     }
 
     ctx.fillText('Amount to be paid:', 95, y);
@@ -868,12 +895,27 @@ function deleteExpense(id) {
 // Dashboard Functions
 function setupDashboard() {
     const yearSelect = document.getElementById('dashboardYear');
+    const periodSelect = document.getElementById('dashboardPeriod');
+    const exportExpenseBtn = document.getElementById('exportExpenseReport');
+    const exportPLBtn = document.getElementById('exportProfitLoss');
 
     // Populate year selector
     populateYearSelector();
 
     yearSelect.addEventListener('change', () => {
         updateDashboard();
+    });
+
+    periodSelect.addEventListener('change', () => {
+        updateDashboard();
+    });
+
+    exportExpenseBtn.addEventListener('click', () => {
+        exportExpenseReport();
+    });
+
+    exportPLBtn.addEventListener('click', () => {
+        exportProfitLossStatement();
     });
 
     updateDashboard();
@@ -907,23 +949,34 @@ function populateYearSelector() {
 
 function updateDashboard() {
     const selectedYear = parseInt(document.getElementById('dashboardYear').value);
+    const selectedPeriod = document.getElementById('dashboardPeriod').value;
     const invoices = getInvoiceHistory();
     const expenses = getExpenses();
 
-    // Filter by selected year
-    const yearInvoices = invoices.filter(inv =>
-        new Date(inv.timestamp).getFullYear() === selectedYear
-    );
-    const yearExpenses = expenses.filter(exp =>
-        new Date(exp.date).getFullYear() === selectedYear
-    );
+    // Get date range based on period
+    const dateRange = getDateRange(selectedPeriod, selectedYear);
+
+    // Filter by selected period
+    const filteredInvoices = invoices.filter(inv => {
+        const invDate = new Date(inv.timestamp);
+        return invDate >= dateRange.start && invDate <= dateRange.end;
+    });
+    const filteredExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= dateRange.start && expDate <= dateRange.end;
+    });
 
     // Calculate totals
-    const totalIncome = yearInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-    const totalExpenses = yearExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+    const totalIncome = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
     const netProfit = totalIncome - totalExpenses;
 
-    // Update dashboard cards
+    // Update dashboard cards with period label
+    const periodLabel = selectedPeriod === 'ytd' ? 'YTD' : selectedPeriod === 'weekly' ? 'This Week' : 'Pay Period';
+    document.querySelector('.income-card .card-label').textContent = `Total Income (${periodLabel})`;
+    document.querySelector('.expense-card .card-label').textContent = `Total Expenses (${periodLabel})`;
+    document.querySelector('.profit-card .card-label').textContent = `Net Profit (${periodLabel})`;
+
     document.getElementById('ytdIncome').textContent = `$${totalIncome.toFixed(2)}`;
     document.getElementById('ytdExpenses').textContent = `$${totalExpenses.toFixed(2)}`;
     document.getElementById('ytdProfit').textContent = `$${netProfit.toFixed(2)}`;
@@ -933,10 +986,55 @@ function updateDashboard() {
     profitCard.style.color = netProfit >= 0 ? '#4caf50' : '#dc3545';
 
     // Display expense breakdown
-    displayExpenseBreakdown(yearExpenses);
+    displayExpenseBreakdown(filteredExpenses);
 
     // Display monthly summary
-    displayMonthlySummary(yearInvoices, yearExpenses, selectedYear);
+    displayMonthlySummary(filteredInvoices, filteredExpenses, selectedYear);
+}
+
+function getDateRange(period, year) {
+    const now = new Date();
+    let start, end;
+
+    switch(period) {
+        case 'weekly':
+            // Get current week (Monday to Sunday)
+            const dayOfWeek = now.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            start = new Date(now);
+            start.setDate(now.getDate() + mondayOffset);
+            start.setHours(0, 0, 0, 0);
+
+            end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            end.setHours(23, 59, 59, 999);
+            break;
+
+        case 'pay-period':
+            // Pay period is every 2 weeks, starting from a reference date
+            // Using January 1st of current year as reference
+            const referenceDate = new Date(now.getFullYear(), 0, 1);
+            const daysSinceReference = Math.floor((now - referenceDate) / (1000 * 60 * 60 * 24));
+            const payPeriodNumber = Math.floor(daysSinceReference / 14);
+
+            start = new Date(referenceDate);
+            start.setDate(referenceDate.getDate() + (payPeriodNumber * 14));
+            start.setHours(0, 0, 0, 0);
+
+            end = new Date(start);
+            end.setDate(start.getDate() + 13);
+            end.setHours(23, 59, 59, 999);
+            break;
+
+        case 'ytd':
+        default:
+            // Year to date
+            start = new Date(year, 0, 1);
+            end = new Date(year, 11, 31, 23, 59, 59, 999);
+            break;
+    }
+
+    return { start, end };
 }
 
 function displayExpenseBreakdown(expenses) {
@@ -1027,6 +1125,66 @@ function displayMonthlySummary(invoices, expenses, year) {
             </div>
         </div>
     `).join('');
+}
+
+// ===== Accessories/Additional Charges Functions =====
+
+let accessoryCounter = 0;
+
+function setupAccessories() {
+    const addAccessoryBtn = document.getElementById('addAccessoryBtn');
+    addAccessoryBtn.addEventListener('click', addAccessoryField);
+}
+
+function addAccessoryField() {
+    const container = document.getElementById('accessoriesContainer');
+    const accessoryId = `accessory-${accessoryCounter++}`;
+
+    const accessoryDiv = document.createElement('div');
+    accessoryDiv.className = 'accessory-item';
+    accessoryDiv.id = accessoryId;
+
+    accessoryDiv.innerHTML = `
+        <div class="form-row">
+            <div class="form-group">
+                <label>Description:</label>
+                <input type="text" class="accessory-description" placeholder="e.g., Detention, Lumper Fee, Extra Stop" required>
+            </div>
+            <div class="form-group">
+                <label>Amount ($):</label>
+                <input type="number" step="0.01" class="accessory-amount" placeholder="50.00" required>
+            </div>
+            <button type="button" class="btn-remove-accessory" onclick="removeAccessory('${accessoryId}')">Remove</button>
+        </div>
+    `;
+
+    container.appendChild(accessoryDiv);
+}
+
+function removeAccessory(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.remove();
+    }
+}
+
+function getAccessories() {
+    const accessories = [];
+    const items = document.querySelectorAll('.accessory-item');
+
+    items.forEach(item => {
+        const description = item.querySelector('.accessory-description').value;
+        const amount = item.querySelector('.accessory-amount').value;
+
+        if (description && amount) {
+            accessories.push({
+                description: description,
+                amount: parseFloat(amount).toFixed(2)
+            });
+        }
+    });
+
+    return accessories;
 }
 
 // ===== PHASE 2: Receipt Upload and OCR Functions =====
@@ -1253,5 +1411,275 @@ function resetReceiptForm() {
     document.getElementById('ocrStatus').classList.add('hidden');
     document.getElementById('ocrResults').classList.add('hidden');
     document.getElementById('processReceiptBtn').classList.add('hidden');
+}
+
+// ===== Export Functions =====
+
+function exportExpenseReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const selectedYear = parseInt(document.getElementById('dashboardYear').value);
+    const selectedPeriod = document.getElementById('dashboardPeriod').value;
+    const expenses = getExpenses();
+
+    // Get date range
+    const dateRange = getDateRange(selectedPeriod, selectedYear);
+
+    // Filter expenses
+    const filteredExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= dateRange.start && expDate <= dateRange.end;
+    });
+
+    const periodLabel = selectedPeriod === 'ytd' ? 'Year to Date' : selectedPeriod === 'weekly' ? 'This Week' : 'Pay Period';
+    const companyName = localStorage.getItem('companyName') || 'Your Company';
+
+    // Title
+    doc.setFontSize(18);
+    doc.text('Expense Report', 105, 20, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.text(companyName, 105, 30, { align: 'center' });
+    doc.text(`Period: ${periodLabel} (${selectedYear})`, 105, 38, { align: 'center' });
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 46, { align: 'center' });
+
+    // Category labels
+    const categoryLabels = {
+        fuel: 'Fuel',
+        maintenance: 'Maintenance & Repairs',
+        tolls: 'Tolls & Parking',
+        food: 'Food & Meals',
+        insurance: 'Insurance',
+        permits: 'Permits & Licenses',
+        truck_payment: 'Truck Payment/Lease',
+        supplies: 'Supplies',
+        drivers_pay: 'Drivers Pay',
+        other: 'Other'
+    };
+
+    // Group by category
+    const breakdown = {};
+    filteredExpenses.forEach(exp => {
+        if (!breakdown[exp.category]) {
+            breakdown[exp.category] = { total: 0, items: [] };
+        }
+        breakdown[exp.category].total += parseFloat(exp.amount);
+        breakdown[exp.category].items.push(exp);
+    });
+
+    let y = 60;
+    const lineHeight = 6;
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Summary by category
+    doc.setFontSize(14);
+    doc.text('Expense Summary by Category', 20, y);
+    y += 10;
+
+    doc.setFontSize(10);
+    Object.entries(breakdown).sort((a, b) => b[1].total - a[1].total).forEach(([category, data]) => {
+        if (y > pageHeight - 20) {
+            doc.addPage();
+            y = 20;
+        }
+        doc.text(`${categoryLabels[category]}: $${data.total.toFixed(2)}`, 25, y);
+        y += lineHeight;
+    });
+
+    y += 10;
+
+    // Detailed expenses
+    doc.setFontSize(14);
+    if (y > pageHeight - 20) {
+        doc.addPage();
+        y = 20;
+    }
+    doc.text('Detailed Expenses', 20, y);
+    y += 10;
+
+    doc.setFontSize(9);
+    filteredExpenses.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(exp => {
+        if (y > pageHeight - 20) {
+            doc.addPage();
+            y = 20;
+        }
+        const expDate = new Date(exp.date).toLocaleDateString();
+        doc.text(`${expDate} - ${categoryLabels[exp.category]}`, 25, y);
+        y += lineHeight;
+        doc.text(`  ${exp.vendor} - $${exp.amount}`, 25, y);
+        if (exp.notes) {
+            y += lineHeight;
+            doc.text(`  Notes: ${exp.notes}`, 25, y);
+        }
+        y += lineHeight + 2;
+    });
+
+    // Total
+    y += 5;
+    if (y > pageHeight - 30) {
+        doc.addPage();
+        y = 20;
+    }
+    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Expenses: $${totalExpenses.toFixed(2)}`, 20, y);
+
+    // Save PDF
+    doc.save(`Expense_Report_${periodLabel.replace(/\s+/g, '_')}_${selectedYear}.pdf`);
+    alert('Expense report exported successfully!');
+}
+
+function exportProfitLossStatement() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const selectedYear = parseInt(document.getElementById('dashboardYear').value);
+    const selectedPeriod = document.getElementById('dashboardPeriod').value;
+    const invoices = getInvoiceHistory();
+    const expenses = getExpenses();
+
+    // Get date range
+    const dateRange = getDateRange(selectedPeriod, selectedYear);
+
+    // Filter data
+    const filteredInvoices = invoices.filter(inv => {
+        const invDate = new Date(inv.timestamp);
+        return invDate >= dateRange.start && invDate <= dateRange.end;
+    });
+    const filteredExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= dateRange.start && expDate <= dateRange.end;
+    });
+
+    const periodLabel = selectedPeriod === 'ytd' ? 'Year to Date' : selectedPeriod === 'weekly' ? 'This Week' : 'Pay Period';
+    const companyName = localStorage.getItem('companyName') || 'Your Company';
+    const companyAddress = localStorage.getItem('companyAddress') || '';
+
+    // Title
+    doc.setFontSize(18);
+    doc.text('Profit & Loss Statement', 105, 20, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.text(companyName, 105, 30, { align: 'center' });
+    if (companyAddress) {
+        doc.setFontSize(10);
+        doc.text(companyAddress, 105, 37, { align: 'center' });
+    }
+    doc.setFontSize(11);
+    doc.text(`Period: ${periodLabel} (${selectedYear})`, 105, 45, { align: 'center' });
+    doc.text(`Date Range: ${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`, 105, 52, { align: 'center' });
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 59, { align: 'center' });
+
+    let y = 75;
+    const lineHeight = 7;
+
+    // INCOME SECTION
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('INCOME', 20, y);
+    y += 10;
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    const totalIncome = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    doc.text(`Freight Revenue (${filteredInvoices.length} invoices)`, 25, y);
+    doc.text(`$${totalIncome.toFixed(2)}`, 180, y, { align: 'right' });
+    y += 10;
+
+    doc.setFont(undefined, 'bold');
+    doc.text('Total Income:', 25, y);
+    doc.text(`$${totalIncome.toFixed(2)}`, 180, y, { align: 'right' });
+    y += 15;
+
+    // EXPENSES SECTION
+    doc.setFontSize(14);
+    doc.text('EXPENSES', 20, y);
+    y += 10;
+
+    // Category labels
+    const categoryLabels = {
+        fuel: 'Fuel',
+        maintenance: 'Maintenance & Repairs',
+        tolls: 'Tolls & Parking',
+        food: 'Food & Meals',
+        insurance: 'Insurance',
+        permits: 'Permits & Licenses',
+        truck_payment: 'Truck Payment/Lease',
+        supplies: 'Supplies',
+        drivers_pay: 'Drivers Pay',
+        other: 'Other'
+    };
+
+    // Group expenses by category
+    const breakdown = {};
+    filteredExpenses.forEach(exp => {
+        if (!breakdown[exp.category]) {
+            breakdown[exp.category] = 0;
+        }
+        breakdown[exp.category] += parseFloat(exp.amount);
+    });
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    Object.entries(breakdown).sort((a, b) => b[1] - a[1]).forEach(([category, amount]) => {
+        doc.text(categoryLabels[category], 25, y);
+        doc.text(`$${amount.toFixed(2)}`, 180, y, { align: 'right' });
+        y += lineHeight;
+    });
+
+    y += 5;
+    const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
+    doc.setFont(undefined, 'bold');
+    doc.text('Total Expenses:', 25, y);
+    doc.text(`$${totalExpenses.toFixed(2)}`, 180, y, { align: 'right' });
+    y += 15;
+
+    // NET PROFIT
+    const netProfit = totalIncome - totalExpenses;
+    doc.setFontSize(14);
+    doc.line(20, y - 5, 190, y - 5);
+    y += 5;
+
+    if (netProfit >= 0) {
+        doc.setTextColor(0, 128, 0);
+        doc.text('NET PROFIT:', 25, y);
+        doc.text(`$${netProfit.toFixed(2)}`, 180, y, { align: 'right' });
+    } else {
+        doc.setTextColor(220, 53, 69);
+        doc.text('NET LOSS:', 25, y);
+        doc.text(`$${Math.abs(netProfit).toFixed(2)}`, 180, y, { align: 'right' });
+    }
+
+    doc.setTextColor(0, 0, 0);
+    y += 15;
+
+    // Key Metrics
+    doc.setFontSize(12);
+    doc.text('Key Metrics:', 20, y);
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    const profitMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(2) : '0.00';
+    doc.text(`Profit Margin: ${profitMargin}%`, 25, y);
+    y += lineHeight;
+
+    const avgInvoice = filteredInvoices.length > 0 ? (totalIncome / filteredInvoices.length).toFixed(2) : '0.00';
+    doc.text(`Average Invoice: $${avgInvoice}`, 25, y);
+    y += lineHeight;
+
+    const avgExpense = filteredExpenses.length > 0 ? (totalExpenses / filteredExpenses.length).toFixed(2) : '0.00';
+    doc.text(`Average Expense: $${avgExpense}`, 25, y);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'italic');
+    doc.text('This statement is for informational purposes. Consult a tax professional for official filings.', 105, 280, { align: 'center' });
+
+    // Save PDF
+    doc.save(`Profit_Loss_Statement_${periodLabel.replace(/\s+/g, '_')}_${selectedYear}.pdf`);
+    alert('Profit & Loss statement exported successfully!');
 }
 
