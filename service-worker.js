@@ -1,4 +1,4 @@
-const CACHE_NAME = 'truckinvoice-v8';
+const CACHE_NAME = 'truckinvoice-v9';
 const urlsToCache = [
   './index.html',
   './style.css',
