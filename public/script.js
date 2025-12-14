@@ -1261,6 +1261,11 @@ function setupReceiptUpload() {
                 previewImage.src = event.target.result;
                 receiptPreview.classList.remove('hidden');
                 processBtn.classList.remove('hidden');
+                // Clear any previous processed canvases
+                window._lastProcessed = null;
+                // Ensure toggle state is applied (defaults to original)
+                const toggle = document.getElementById('showPreprocessed');
+                if (toggle) toggle.checked = false;
             };
             reader.readAsDataURL(file);
         }
@@ -1421,6 +1426,30 @@ function setupReceiptUpload() {
             }
         });
     }
+
+    // Hook up preview toggle to switch between original and preprocessed canvases
+    const previewToggle = document.getElementById('showPreprocessed');
+    if (previewToggle) {
+        previewToggle.addEventListener('change', () => {
+            try {
+                const last = window._lastProcessed;
+                if (previewToggle.checked && last && last.binaryCanvas) {
+                    previewImage.src = last.binaryCanvas.toDataURL();
+                } else if (last && last.grayscaleCanvas) {
+                    // If not checked but we have processed canvas, show grayscale version
+                    previewImage.src = last.grayscaleCanvas.toDataURL();
+                } else {
+                    // Fallback to original file if available
+                    const file = receiptInput.files[0];
+                    if (file) {
+                        const r = new FileReader();
+                        r.onload = (e) => previewImage.src = e.target.result;
+                        r.readAsDataURL(file);
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        });
+    }
 }
 
 // Process receipt image with Tesseract OCR
@@ -1448,10 +1477,18 @@ async function processReceiptWithOCR(file) {
         // Preprocess image (grayscale, increase contrast, adaptive threshold)
         const { binaryCanvas, grayscaleCanvas } = await preprocessImage(dataURL);
 
-        // Optionally show the preprocessed preview to the user for debugging
+        // Store processed canvases for preview and retry use
+        window._lastProcessed = { binaryCanvas, grayscaleCanvas };
+        // Optionally show the preprocessed preview to the user for debugging if toggle is set
         try {
             const previewImage = document.getElementById('previewImage');
-            previewImage.src = processedCanvas.toDataURL();
+            const previewToggle = document.getElementById('showPreprocessed');
+            if (previewToggle && previewToggle.checked) {
+                previewImage.src = binaryCanvas.toDataURL();
+            } else {
+                // show grayscale by default when using preprocessed preview logic for OCR result
+                previewImage.src = grayscaleCanvas.toDataURL();
+            }
         } catch (e) {
             // ignore
         }
