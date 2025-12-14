@@ -9,7 +9,11 @@
       "Bash(git config:*)",
       "Bash(git branch:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(if [ -f .gitignore ])",
+      "Bash(then cat .gitignore)",
+      "Bash(else echo \"No .gitignore file found\")",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []
