@@ -247,10 +247,22 @@
                     </div>
 
                     <div id="receiptPreview" class="receipt-preview hidden">
-                        <img id="previewImage" alt="Receipt Preview">
+                        <div id="previewContainer" style="position:relative; display:inline-block;">
+                            <img id="previewImage" alt="Receipt Preview" style="max-width:100%; display:block;">
+                            <div id="cropOverlay" style="position:absolute; border:2px dashed #0b79d0; display:none; pointer-events:none;"></div>
+                        </div>
                         <div class="preview-controls">
                             <label class="preview-toggle"><input type="checkbox" id="showPreprocessed"> Show preprocessed image</label>
+                            <label class="preview-toggle"><input type="checkbox" id="doNotSavePhotos"> Do not save receipt photos (save parsed data only)</label>
+                            <label class="preview-toggle"><input type="checkbox" id="enhancedOcrToggle"> Enhanced OCR (contrast + sharpen)</label>
                         </div>
+                        <div class="crop-controls">
+                            <button type="button" id="startCropBtn" class="btn-secondary">Start Crop</button>
+                            <button type="button" id="applyCropBtn" class="btn-secondary" disabled>Apply Crop</button>
+                            <button type="button" id="applyCropProcessBtn" class="btn-generate" disabled>Apply & Process</button>
+                            <button type="button" id="resetCropBtn" class="btn-secondary" disabled>Reset Crop</button>
+                        </div>
+                        <p class="edit-hint">Tip: draw a rectangle over the receipt to remove surrounding objects.</p>
                     </div>
 
                     <div id="ocrStatus" class="ocr-status hidden">
@@ -293,6 +305,8 @@
                             <div class="extracted-item">
                                 <label>Raw OCR Text (editable):</label>
                                 <textarea id="rawOcrText" rows="8" placeholder="Full OCR text will appear here..."></textarea>
+                                <label>Raw Tesseract JSON (words/lines):</label>
+                                <textarea id="rawTessJson" rows="8" placeholder="Full Tesseract JSON will appear here..." readonly></textarea>
                                 <div class="button-group">
                                     <button type="button" id="copyRawBtn" class="btn-secondary">Copy Raw Text</button>
                                     <button type="button" id="saveRawExpenseBtn" class="btn-generate">Save Raw as Expense</button>
@@ -304,6 +318,7 @@
                             <button type="button" id="addAsExpenseBtn" class="btn-generate">Add as Expense</button>
                             <button type="button" id="useInInvoiceBtn" class="btn-secondary">Use in Invoice</button>
                             <button type="button" id="retryAmountBtn" class="btn-secondary">Retry Amount Detection</button>
+                            <button type="button" id="retryEnhancedBtn" class="btn-secondary">Retry (Enhanced OCR)</button>
                         </div>
                     </div>
 
@@ -454,6 +469,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
     <script src="firebase-config.js"></script>
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

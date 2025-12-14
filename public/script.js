@@ -1,5 +1,7 @@
+import { EMAILJS_CONFIG, STORAGE_KEYS, FEATURES } from './config.js';
+
 // Initialize EmailJS
-emailjs.init('flEWLVoiJ1uMBZgnW');
+emailjs.init(EMAILJS_CONFIG.publicKey);
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
@@ -36,10 +38,10 @@ function setTodayAsDefault() {
 
 // Load company info from localStorage
 function loadCompanyInfo() {
-    const companyName = localStorage.getItem('companyName');
-    const companyAddress = localStorage.getItem('companyAddress');
-    const carrierId = localStorage.getItem('carrierId');
-    const userEmail = localStorage.getItem('userEmail');
+    const companyName = localStorage.getItem(STORAGE_KEYS.companyName);
+    const companyAddress = localStorage.getItem(STORAGE_KEYS.companyAddress);
+    const carrierId = localStorage.getItem(STORAGE_KEYS.carrierId);
+    const userEmail = localStorage.getItem(STORAGE_KEYS.userEmail);
 
     if (companyName) document.getElementById('companyName').value = companyName;
     if (companyAddress) document.getElementById('companyAddress').value = companyAddress;
@@ -58,185 +60,43 @@ function saveCompanyInfo() {
 
     // Save to localStorage
     localStorage.setItem('companyName', companyData.companyName);
-    localStorage.setItem('companyAddress', companyData.companyAddress);
-    localStorage.setItem('carrierId', companyData.carrierId);
-    localStorage.setItem('userEmail', companyData.userEmail);
+    async function processReceiptWithOCR(file, options = {}) {
+        const ocrStatus = document.getElementById('ocrStatus');
+        const ocrResults = document.getElementById('ocrResults');
+        const ocrMessage = document.getElementById('ocrMessage');
+        const processBtn = document.getElementById('processReceiptBtn');
 
-    // Sync to cloud if enabled
-    if (typeof saveCompanyInfoToCloud === 'function') {
-        saveCompanyInfoToCloud(companyData);
+        // Show status briefly, then surface raw text placeholder for manual entry
+        ocrStatus.classList.remove('hidden');
+        ocrResults.classList.add('hidden');
+        processBtn.classList.add('hidden');
+        ocrMessage.textContent = 'OCR disabled. Please enter receipt details manually.';
+
+        // Populate raw text with a note; leave parsed fields empty
+        const parsedData = {
+            vendor: '',
+            amount: '',
+            date: new Date().toISOString().split('T')[0],
+            category: 'other',
+            items: []
+        };
+
+        try {
+            const rawEl = document.getElementById('rawOcrText');
+            if (rawEl) rawEl.value = 'OCR disabled. Enter details manually or paste text here.';
+            const tessJsonEl = document.getElementById('rawTessJson');
+            if (tessJsonEl) tessJsonEl.value = '';
+            window._lastTessRaw = null;
+        } catch (e) { /* ignore */ }
+
+        document.getElementById('extractedVendor').value = parsedData.vendor;
+        document.getElementById('extractedAmount').value = parsedData.amount;
+        document.getElementById('extractedDate').value = parsedData.date;
+        document.getElementById('extractedCategory').value = parsedData.category;
+
+        ocrStatus.classList.add('hidden');
+        ocrResults.classList.remove('hidden');
     }
-}
-
-// Format date from YYYY-MM-DD to MM/DD/YYYY
-function formatDate(dateString) {
-    const date = new Date(dateString + 'T00:00:00');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
-}
-
-// Handle form submission
-document.getElementById('invoiceForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-
-    // Save company info
-    saveCompanyInfo();
-
-    // Get form values
-    const invoiceNumber = document.getElementById('invoiceNumber').value;
-    const invoiceDate = formatDate(document.getElementById('invoiceDate').value);
-    const customerName = document.getElementById('customerName').value;
-    const dateDelivered = formatDate(document.getElementById('dateDelivered').value);
-    const loadNumber = document.getElementById('loadNumber').value;
-    const amount = parseFloat(document.getElementById('amount').value).toFixed(2);
-    const companyName = document.getElementById('companyName').value;
-    const companyAddress = document.getElementById('companyAddress').value;
-    const carrierId = document.getElementById('carrierId').value;
-    const userEmail = document.getElementById('userEmail').value;
-
-    // Get product information if available
-    const productDescription = document.getElementById('productDescription').value.trim();
-    const pieceCount = document.getElementById('pieceCount').value;
-    const ratePerPiece = document.getElementById('ratePerPiece').value;
-
-    // Get accessories/additional charges
-    const accessories = getAccessories();
-
-    // Generate PDF
-    generateInvoicePDF({
-        invoiceNumber,
-        invoiceDate,
-        customerName,
-        dateDelivered,
-        loadNumber,
-        amount,
-        companyName,
-        companyAddress,
-        carrierId,
-        userEmail,
-        productDescription,
-        pieceCount,
-        ratePerPiece,
-        accessories
-    });
-});
-
-function generateInvoicePDF(data) {
-    // First, generate the JPG image
-    generateInvoiceJPG(data);
-
-    // Then, generate the PDF
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'letter'
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 25;
-
-    // Add border
-    doc.setLineWidth(0.5);
-    doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
-
-    // Title "Invoice" - top right
-    doc.setFontSize(14);
-    doc.text('Invoice', pageWidth - margin, 25, { align: 'right' });
-
-    // Main content - left aligned
-    doc.setFontSize(11);
-    let y = 45;
-    const lineHeight = 6;
-
-    doc.text(`Invoice #: ${data.invoiceNumber}`, margin, y);
-    y += lineHeight;
-
-    doc.text('Invoice Date:', margin, y);
-    y += lineHeight;
-    doc.text(`__${data.invoiceDate}____________`, margin, y);
-    y += lineHeight + 2;
-
-    doc.text(`Customer's Name ____${data.customerName}`, margin, y);
-    y += lineHeight;
-    doc.text('_______________', margin, y);
-    y += lineHeight + 2;
-
-    doc.text('Date Delivered:', margin, y);
-    y += lineHeight;
-    doc.text(`__${data.dateDelivered}____________`, margin, y);
-    y += lineHeight + 2;
-
-    doc.text('Load Number:', margin, y);
-    y += lineHeight;
-    doc.text(`__${data.loadNumber}______________`, margin, y);
-    y += lineHeight + 3;
-
-    // Add product description if available
-    if (data.productDescription && data.productDescription.length > 0) {
-        doc.text('Product Description:', margin, y);
-        y += lineHeight;
-        doc.text(`__${data.productDescription}`, margin, y);
-        y += lineHeight;
-        if (data.pieceCount && data.ratePerPiece) {
-            doc.text(`(${data.pieceCount} pieces @ $${parseFloat(data.ratePerPiece).toFixed(2)}/piece)`, margin, y);
-            y += lineHeight + 2;
-        } else {
-            y += 2;
-        }
-    }
-
-    // Add accessories/additional charges if available
-    if (data.accessories && data.accessories.length > 0) {
-        doc.text('Additional Charges:', margin, y);
-        y += lineHeight;
-        data.accessories.forEach(acc => {
-            doc.text(`  - ${acc.description}: $${acc.amount}`, margin, y);
-            y += lineHeight;
-        });
-        y += 2;
-    }
-
-    doc.text('Amount to be paid:', margin, y);
-    y += lineHeight;
-    doc.text(`${data.amount}______________ Your`, margin, y);
-    y += lineHeight;
-
-    doc.text(`Company Name: _${data.companyName}`, margin, y);
-    y += lineHeight;
-    doc.text('________________ Your Company', margin, y);
-    y += lineHeight;
-
-    doc.text('Address:', margin, y);
-    y += lineHeight;
-    doc.text(`_${data.companyAddress}`, margin, y);
-    y += lineHeight;
-    doc.text('_____________________________', margin, y);
-    y += lineHeight;
-    doc.text('_____________________________', margin, y);
-    y += lineHeight + 8;
-
-    // Carrier ID
-    doc.text(`Carrier ID: _${data.carrierId}______________`, margin, y);
-
-    const fileName = `Invoice_${data.invoiceNumber}_${data.loadNumber}`;
-
-    // Save PDF locally
-    doc.save(`${fileName}.pdf`);
-
-    // Save invoice to history
-    saveInvoiceToHistory(data);
-}
-
-function generateInvoiceJPG(data) {
-    // Create a canvas to draw the invoice
-    const canvas = document.createElement('canvas');
-    canvas.width = 816;  // 8.5 inches at 96 DPI
-    canvas.height = 1056; // 11 inches at 96 DPI
-    const ctx = canvas.getContext('2d');
 
     // White background
     ctx.fillStyle = 'white';
@@ -1240,6 +1100,9 @@ function setupReceiptUpload() {
     const rawOcrText = document.getElementById('rawOcrText');
     const copyRawBtn = document.getElementById('copyRawBtn');
     const saveRawExpenseBtn = document.getElementById('saveRawExpenseBtn');
+    const doNotSavePhotosCheckbox = document.getElementById('doNotSavePhotos');
+    const enhancedOcrToggle = document.getElementById('enhancedOcrToggle');
+    const retryEnhancedBtn = document.getElementById('retryEnhancedBtn');
 
     // Make the file input label clickable and enable camera on mobile
     fileInputLabel.addEventListener('click', () => {
@@ -1265,6 +1128,17 @@ function setupReceiptUpload() {
                 window._croppedDataURL = null;
                 receiptPreview.classList.remove('hidden');
                 processBtn.classList.remove('hidden');
+                // Initialize doNotSavePhotos checkbox from stored preference (default true)
+                try {
+                    const pref = localStorage.getItem('doNotSavePhotos');
+                    if (doNotSavePhotosCheckbox) {
+                        if (pref === null) {
+                            doNotSavePhotosCheckbox.checked = true;
+                        } else {
+                            doNotSavePhotosCheckbox.checked = pref === '1';
+                        }
+                    }
+                } catch (e) { /* ignore localStorage errors */ }
                 // Clear any previous processed canvases
                 window._lastProcessed = null;
                 // Ensure toggle state is applied (defaults to original)
@@ -1296,7 +1170,20 @@ function setupReceiptUpload() {
         }
 
         if (fileToProcess) {
-            await processReceiptWithOCR(fileToProcess);
+            await processReceiptWithOCR(fileToProcess, { enhanced: enhancedOcrToggle && enhancedOcrToggle.checked });
+
+            // If user prefers not to keep photos, clear temporary image data and persist preference
+            try {
+                if (doNotSavePhotosCheckbox && doNotSavePhotosCheckbox.checked) {
+                    localStorage.setItem('doNotSavePhotos', '1');
+                    // Clear any in-memory data URLs/files
+                    if (window._originalDataURL) delete window._originalDataURL;
+                    if (window._croppedDataURL) delete window._croppedDataURL;
+                    // Keep _originalFile in memory for retries but do not persist
+                } else if (doNotSavePhotosCheckbox) {
+                    localStorage.setItem('doNotSavePhotos', '0');
+                }
+            } catch (e) { /* ignore storage errors */ }
         } else {
             alert('No receipt image selected.');
         }
@@ -1400,52 +1287,24 @@ function setupReceiptUpload() {
         resetReceiptForm();
     });
 
+    // Retry with enhanced preprocessing
+    if (retryEnhancedBtn) {
+        retryEnhancedBtn.addEventListener('click', async () => {
+            try {
+                const file = window._originalFile || (receiptInput.files && receiptInput.files[0]);
+                if (!file) { alert('No image available to retry. Please upload again.'); return; }
+                await processReceiptWithOCR(file, { enhanced: true });
+            } catch (e) {
+                alert('Retry failed: ' + (e && e.message ? e.message : e));
+            }
+        });
+    }
+
     // Retry amount detection using an aggressive numeric-only pass
     const retryAmountBtn = document.getElementById('retryAmountBtn');
     if (retryAmountBtn) {
-        retryAmountBtn.addEventListener('click', async () => {
-            const file = receiptInput.files[0];
-            if (!file) { alert('No receipt loaded. Please select an image first.'); return; }
-            retryAmountBtn.disabled = true;
-            const ocrMessage = document.getElementById('ocrMessage');
-            ocrMessage.textContent = 'Retrying amount detection...';
-
-            try {
-                const dataURL = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-
-                const { binaryCanvas, grayscaleCanvas } = await preprocessImage(dataURL);
-                const worker = await getTesseractWorker();
-
-                // Temporarily set PSM to single-block and restrict chars to numeric + $ and comma/period
-                await worker.setParameters({ 'tessedit_pageseg_mode': '6', 'tessedit_char_whitelist': '0123456789$.,' });
-
-                const canvasForBottom = grayscaleCanvas;
-                const bottomCanvas = cropCanvas(canvasForBottom, 0, Math.floor(canvasForBottom.height * 0.5), canvasForBottom.width, Math.floor(canvasForBottom.height * 0.5));
-                const bottomRes = await worker.recognize(bottomCanvas);
-                const bottomText = (bottomRes && bottomRes.data) ? bottomRes.data.text || '' : '';
-                const bottomAmount = parseAmountFromText(bottomText);
-                if (bottomAmount) {
-                    document.getElementById('extractedAmount').value = parseFloat(bottomAmount).toFixed(2);
-                    document.getElementById('rawOcrText').value = (document.getElementById('rawOcrText').value || '') + '\n\n-- Retry Amount Detection --\n' + bottomText;
-                    alert('Amount re-detected and updated');
-                } else {
-                    alert('Could not find a better amount on retry');
-                }
-
-                // Restore sensible PSM/whitelist
-                await worker.setParameters({ 'tessedit_pageseg_mode': '3', 'tessedit_char_whitelist': '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$.,:-/ ' });
-            } catch (e) {
-                console.warn('Retry amount detection failed', e);
-                alert('Retry failed. Try a clearer photo or edit the amount manually.');
-            } finally {
-                retryAmountBtn.disabled = false;
-                ocrMessage.textContent = '';
-            }
+        retryAmountBtn.addEventListener('click', () => {
+            alert('OCR is disabled. Please enter the amount manually.');
         });
     }
 
@@ -1610,263 +1469,41 @@ function setupReceiptUpload() {
     }
 }
 
-// Process receipt image with Tesseract OCR
-async function processReceiptWithOCR(file) {
+// Process receipt image (OCR disabled; manual entry only)
+async function processReceiptWithOCR(file, options = {}) {
     const ocrStatus = document.getElementById('ocrStatus');
     const ocrResults = document.getElementById('ocrResults');
     const ocrMessage = document.getElementById('ocrMessage');
     const processBtn = document.getElementById('processReceiptBtn');
 
-    // Show processing status
     ocrStatus.classList.remove('hidden');
     ocrResults.classList.add('hidden');
     processBtn.classList.add('hidden');
-    ocrMessage.textContent = 'Processing receipt with OCR... This may take a moment.';
+    ocrMessage.textContent = 'OCR disabled. Please enter receipt details manually.';
+
+    const parsedData = {
+        vendor: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        category: 'other',
+        items: []
+    };
 
     try {
-        // Read file as data URL and preprocess image for better OCR
-        const dataURL = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
+        const rawEl = document.getElementById('rawOcrText');
+        if (rawEl) rawEl.value = 'OCR disabled. Enter details manually or paste text here.';
+        const tessJsonEl = document.getElementById('rawTessJson');
+        if (tessJsonEl) tessJsonEl.value = '';
+        window._lastTessRaw = null;
+    } catch (e) { /* ignore */ }
 
-        // Preprocess image (grayscale, increase contrast, adaptive threshold)
-        const { binaryCanvas, grayscaleCanvas } = await preprocessImage(dataURL);
+    document.getElementById('extractedVendor').value = parsedData.vendor;
+    document.getElementById('extractedAmount').value = parsedData.amount;
+    document.getElementById('extractedDate').value = parsedData.date;
+    document.getElementById('extractedCategory').value = parsedData.category;
 
-        // Store processed canvases for preview and retry use
-        window._lastProcessed = { binaryCanvas, grayscaleCanvas };
-        // Optionally show the preprocessed preview to the user for debugging if toggle is set
-        try {
-            const previewImage = document.getElementById('previewImage');
-            const previewToggle = document.getElementById('showPreprocessed');
-            if (previewToggle && previewToggle.checked) {
-                previewImage.src = binaryCanvas.toDataURL();
-            } else {
-                // show grayscale by default when using preprocessed preview logic for OCR result
-                previewImage.src = grayscaleCanvas.toDataURL();
-            }
-        } catch (e) {
-            // ignore
-        }
-
-        // Use a Tesseract worker for better control and parameters
-        const worker = await getTesseractWorker((m) => {
-            // Update progress UI
-            if (m.status && (m.status.includes('recogniz') || m.status.includes('analyz'))) {
-                ocrMessage.textContent = `Processing... ${Math.round((m.progress || 0) * 100)}%`;
-            }
-        });
-
-        // Try recognizing on binary (thresholded) first, then grayscale as a fallback
-        const binaryRes = await worker.recognize(binaryCanvas);
-        const grayRes = await worker.recognize(grayscaleCanvas);
-
-        // Choose result with higher mean word confidence
-        const meanConfidence = (res) => {
-            if (!res || !res.data || !res.data.words || res.data.words.length === 0) return 0;
-            const ws = res.data.words;
-            return ws.reduce((s, w) => s + (w.confidence || 0), 0) / ws.length;
-        };
-
-        const binConf = meanConfidence(binaryRes);
-        const grayConf = meanConfidence(grayRes);
-        const chosen = binConf >= grayConf ? binaryRes : grayRes;
-        let extractedText = (chosen && chosen.data && chosen.data.text) ? chosen.data.text : (binaryRes.data.text || grayRes.data.text || '');
-        console.log('Chosen OCR source:', binConf >= grayConf ? 'binary' : 'grayscale', 'conf:', Math.max(binConf, grayConf));
-        console.log('Extracted text:', extractedText);
-
-        // Parse extracted data with improved heuristics using word-level info
-        const parsedData = parseReceiptData(extractedText, chosen && chosen.data ? chosen.data : null, (chosen === binaryRes ? binaryCanvas : grayscaleCanvas));
-
-        // If amount wasn't found or is zero, try a focused pass on the bottom of the receipt (where totals usually are)
-        try {
-            const parsedAmount = parseFloat(parsedData.amount || '0');
-            if (!parsedAmount || parsedAmount < 0.5) {
-                const canvasForBottom = (chosen === binaryRes ? binaryCanvas : grayscaleCanvas);
-                const bottomCanvas = cropCanvas(canvasForBottom, 0, Math.floor(canvasForBottom.height * 0.6), canvasForBottom.width, Math.floor(canvasForBottom.height * 0.4));
-                const bottomRes = await worker.recognize(bottomCanvas);
-                const bottomText = bottomRes && bottomRes.data ? bottomRes.data.text || '' : '';
-                console.log('Bottom region text:', bottomText);
-                const bottomAmount = parseAmountFromText(bottomText);
-                if (bottomAmount) {
-                    parsedData.amount = bottomAmount.toFixed(2);
-                } else {
-                    // As a last resort, try a numeric-only search on the whole text
-                    const fallback = parseAmountFromText(extractedText);
-                    if (fallback) parsedData.amount = fallback.toFixed(2);
-                }
-            }
-        } catch (e) {
-            console.warn('Bottom-pass amount detection failed', e);
-        }
-
-        // Display results
-        document.getElementById('extractedVendor').value = parsedData.vendor;
-        document.getElementById('extractedAmount').value = parsedData.amount;
-        document.getElementById('extractedDate').value = parsedData.date;
-        document.getElementById('extractedCategory').value = parsedData.category;
-
-        ocrStatus.classList.add('hidden');
-        ocrResults.classList.remove('hidden');
-    } catch (error) {
-        console.error('OCR Error:', error);
-        ocrMessage.textContent = 'Error processing image. Please try again with a clearer photo.';
-        processBtn.classList.remove('hidden');
-    }
-}
-
-// Create or return a cached Tesseract worker with sensible params
-let _tesseractWorker = null;
-async function getTesseractWorker(logger) {
-    if (_tesseractWorker) return _tesseractWorker;
-
-    const worker = Tesseract.createWorker({ logger });
-    await worker.load();
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
-
-    // Improve recognition for receipts
-    await worker.setParameters({
-        'user_defined_dpi': '300',
-        'tessedit_char_whitelist': '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$.,:-/ ',
-        'preserve_interword_spaces': '1',
-        'tessedit_pageseg_mode': '3'
-    });
-
-    _tesseractWorker = worker;
-    return worker;
-}
-
-// Cleanup worker on unload
-window.addEventListener('beforeunload', async () => {
-    if (_tesseractWorker) {
-        try { await _tesseractWorker.terminate(); } catch (e) { /* ignore */ }
-    }
-});
-
-// Simple preprocessing: scale, grayscale, increase contrast, and apply threshold
-async function preprocessImage(dataURL) {
-    // Returns both a binary (thresholded) canvas and a grayscale canvas
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            // Resize up to a reasonable range to help OCR on small images
-            const maxDim = 2000;
-            const minDim = 900;
-            let width = img.width;
-            let height = img.height;
-
-            // Upscale small images to improve recognition
-            if (Math.max(width, height) < minDim) {
-                const scale = minDim / Math.max(width, height);
-                width = Math.round(width * scale);
-                height = Math.round(height * scale);
-            } else if (Math.max(width, height) > maxDim) {
-                const scale = maxDim / Math.max(width, height);
-                width = Math.round(width * scale);
-                height = Math.round(height * scale);
-            }
-
-            const canvasGray = document.createElement('canvas');
-            canvasGray.width = width;
-            canvasGray.height = height;
-            const ctx = canvasGray.getContext('2d');
-
-            // Draw original and get grayscale image
-            ctx.drawImage(img, 0, 0, width, height);
-            const imageData = ctx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-
-            // Convert to grayscale
-            for (let i = 0; i < data.length; i += 4) {
-                const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
-                data[i] = data[i + 1] = data[i + 2] = gray;
-            }
-
-            // Apply a light median filter to reduce salt-and-pepper noise
-            const filtered = medianFilter(imageData, width, height);
-            ctx.putImageData(filtered, 0, 0);
-
-            // Create a binary canvas using adaptive thresholding
-            const binaryCanvas = adaptiveThreshold(canvasGray, 32, 10);
-
-            resolve({ binaryCanvas, grayscaleCanvas: canvasGray });
-        };
-        img.onerror = reject;
-        img.src = dataURL;
-    });
-}
-
-// Simple 3x3 median filter on ImageData; returns new ImageData
-function medianFilter(imageData, width, height) {
-    const src = imageData.data;
-    const out = new Uint8ClampedArray(src.length);
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const vals = [];
-            for (let oy = -1; oy <= 1; oy++) {
-                for (let ox = -1; ox <= 1; ox++) {
-                    const nx = Math.min(width - 1, Math.max(0, x + ox));
-                    const ny = Math.min(height - 1, Math.max(0, y + oy));
-                    const idx = (ny * width + nx) * 4;
-                    vals.push(src[idx]);
-                }
-            }
-            vals.sort((a, b) => a - b);
-            const m = vals[4];
-            const idxOut = (y * width + x) * 4;
-            out[idxOut] = out[idxOut + 1] = out[idxOut + 2] = m;
-            out[idxOut + 3] = 255;
-        }
-    }
-    return new ImageData(out, width, height);
-}
-
-// Adaptive thresholding on a canvas: tileSize determines local window, C is subtracted from mean
-function adaptiveThreshold(sourceCanvas, tileSize = 32, C = 10) {
-    const w = sourceCanvas.width;
-    const h = sourceCanvas.height;
-    const ctx = sourceCanvas.getContext('2d');
-    const src = ctx.getImageData(0, 0, w, h);
-
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = w;
-    outCanvas.height = h;
-    const outCtx = outCanvas.getContext('2d');
-    const outData = outCtx.createImageData(w, h);
-
-    // Precompute integral image for fast local mean
-    const integral = new Uint32Array((w + 1) * (h + 1));
-    for (let y = 0; y < h; y++) {
-        let rowSum = 0;
-        for (let x = 0; x < w; x++) {
-            const v = src.data[(y * w + x) * 4];
-            rowSum += v;
-            integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + rowSum;
-        }
-    }
-
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const x0 = Math.max(0, x - tileSize >> 1);
-            const y0 = Math.max(0, y - tileSize >> 1);
-            const x1 = Math.min(w - 1, x0 + tileSize - 1);
-            const y1 = Math.min(h - 1, y0 + tileSize - 1);
-            const area = (x1 - x0 + 1) * (y1 - y0 + 1);
-            const sum = integral[(y1 + 1) * (w + 1) + (x1 + 1)] - integral[y0 * (w + 1) + (x1 + 1)] - integral[(y1 + 1) * (w + 1) + x0] + integral[y0 * (w + 1) + x0];
-            const mean = sum / area;
-            const val = src.data[(y * w + x) * 4];
-            const v = val > (mean - C) ? 255 : 0;
-            const idx = (y * w + x) * 4;
-            outData.data[idx] = outData.data[idx + 1] = outData.data[idx + 2] = v;
-            outData.data[idx + 3] = 255;
-        }
-    }
-
-    outCtx.putImageData(outData, 0, 0);
-    return outCanvas;
+    ocrStatus.classList.add('hidden');
+    ocrResults.classList.remove('hidden');
 }
 
 // Parse receipt data from OCR text
@@ -1881,8 +1518,10 @@ function parseReceiptData(text, tesseractData = null, canvas = null) {
     const upperText = text.toUpperCase();
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
-    console.log('OCR Extracted Text:', text);
-    console.log('Lines:', lines);
+    try {
+        console.log('OCR Extracted Text:', text);
+        console.log('Lines:', Array.isArray(lines) ? JSON.stringify(lines.slice(0, 50)) : lines);
+    } catch (_) {}
 
     // If tesseract provided word-level data, try to pick a vendor line by confidence and position
     let vendorCandidates = lines.slice(0, Math.min(8, lines.length));
@@ -1922,6 +1561,12 @@ function parseReceiptData(text, tesseractData = null, canvas = null) {
             console.warn('Vendor extraction from words failed', e);
         }
     }
+    // If we see clear merchant names in the whole text, prefer them
+    const vendorWhitelist = ['RURAL KING', 'WALMART', 'TARGET', 'HOME DEPOT', 'LOWE', 'KROGER', 'HEB', 'COSTCO', 'SAM\'S CLUB'];
+    for (const v of vendorWhitelist) {
+        if (upperText.includes(v)) { vendor = v; break; }
+    }
+
     const vendorBlacklist = ['RECEIPT', 'INVOICE', 'TOTAL', 'SUBTOTAL', 'TAX', 'ITEM', 'PRICE', 'AMOUNT', 'VISIT', 'LOYALTY', 'TRANSACTION', 'AUTH', 'CHANGE', 'QTY'];
     const cleanedCandidates = [];
     for (const rawLine of vendorCandidates) {
@@ -1944,7 +1589,10 @@ function parseReceiptData(text, tesseractData = null, canvas = null) {
 
     // Prefer candidate with at least two words and minimal numeric content
     for (const c of cleanedCandidates) {
-        if (/[A-Za-z]/.test(c) && c.split(' ').length >= 2 && ( (c.match(/\d/g) || []).length < 3 )) {
+        const alphaCount = (c.match(/[A-Za-z]/g) || []).length;
+        const digitCount = (c.match(/\d/g) || []).length;
+        // Prefer lines with enough letters, minimal digits, and at least two words
+        if (alphaCount >= 4 && c.split(' ').length >= 2 && digitCount < 3) {
             vendor = c;
             break;
         }
@@ -2108,13 +1756,97 @@ function parseReceiptData(text, tesseractData = null, canvas = null) {
         category = bestCategory[0] === 'hotel' ? 'other' : bestCategory[0];
     }
 
-    console.log('Parsed Data:', { vendor, amount, date, category });
+    // Try to extract line items using layout-aware pairing (preferred), fallback to regex
+    const items = [];
+    try {
+        if (tesseractData && tesseractData.words && tesseractData.words.length > 0) {
+            // Group words by line_num
+            const lineGroups = new Map();
+            for (const w of tesseractData.words) {
+                const ln = w.line_num;
+                if (!lineGroups.has(ln)) lineGroups.set(ln, []);
+                // derive bbox with x0/x1 if available
+                const x0 = w.bbox && typeof w.bbox.x0 === 'number' ? w.bbox.x0 : (typeof w.x0 === 'number' ? w.x0 : null);
+                const x1 = w.bbox && typeof w.bbox.x1 === 'number' ? w.bbox.x1 : (typeof w.x1 === 'number' ? w.x1 : null);
+                lineGroups.get(ln).push({ text: w.text || '', conf: w.confidence || 0, x0, x1 });
+            }
+
+            // For each line, sort words by x0 and split into description (left) and price (rightmost numeric)
+            for (const [, ws] of lineGroups.entries()) {
+                const wordsSorted = ws.filter(w => (w.text || '').trim().length > 0).sort((a, b) => (a.x0||0) - (b.x0||0));
+                if (wordsSorted.length === 0) continue;
+                const joined = wordsSorted.map(w => w.text).join(' ').trim();
+                // Skip obvious header/footer lines
+                if (/TOTAL|SUBTOTAL|TAX|CHANGE|AMOUNT\s+DUE/i.test(joined)) continue;
+
+                // Find the rightmost token that looks like a price
+                let priceIdx = -1;
+                for (let i = wordsSorted.length - 1; i >= 0; i--) {
+                    if (/^\$?[\d,]+\.\d{2}$/.test(wordsSorted[i].text)) { priceIdx = i; break; }
+                }
+                if (priceIdx === -1) continue;
+                const priceVal = parseFloat(wordsSorted[priceIdx].text.replace(/[$,]/g, ''));
+                if (isNaN(priceVal) || priceVal <= 0) continue;
+
+                // Description is everything left of the price token, excluding quantities-only tails
+                const desc = wordsSorted.slice(0, priceIdx).map(w => w.text).join(' ').trim();
+                const cleanDesc = sanitizeVendorLine(desc).replace(/\s{2,}/g, ' ').trim();
+                if (cleanDesc.length >= 2) {
+                    items.push({ description: cleanDesc, price: priceVal.toFixed(2) });
+                }
+            }
+        }
+
+        // Fallback: regex on plain lines if layout pairing found none
+        if (items.length === 0) {
+            let inspectLines = lines.slice();
+            if (tesseractData && tesseractData.lines && tesseractData.lines.length) {
+                inspectLines = tesseractData.lines.map(l => (l.text || '').trim()).filter(l => l.length > 0);
+            }
+            const itemPattern = /(.+?)\s+\$?\s*([\d,]+\.\d{2})\s*$/;
+            for (const ln of inspectLines) {
+                const m = ln.match(itemPattern);
+                if (m) {
+                    const desc = sanitizeVendorLine(m[1]);
+                    const price = parseFloat(m[2].replace(/,/g, ''));
+                    if (!isNaN(price) && price > 0) {
+                        items.push({ description: desc, price: price.toFixed(2) });
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Item extraction failed', e);
+    }
+
+    // If items found, prefer sensible sum-of-items when appropriate
+    try {
+        const itemsTotal = items.reduce((s, it) => s + parseFloat(it.price), 0);
+        if (items.length > 0 && itemsTotal > 0.0) {
+            if ((!labeledAmount || labeledAmount === null)) {
+                amount = itemsTotal.toFixed(2);
+            } else {
+                // If a labeled amount exists but is implausibly large compared to summed items,
+                // prefer the items total as it's likely OCR misread the labeled total.
+                const labeledVal = parseFloat(labeledAmount || 0);
+                if (labeledVal > itemsTotal * 3 || labeledVal > 10000) {
+                    console.warn('Labeled amount seems implausible; using sum of items instead', { labeledVal, itemsTotal });
+                    amount = itemsTotal.toFixed(2);
+                }
+            }
+        }
+    } catch (e) { /* ignore */ }
+
+    try {
+        console.log('Parsed Data:', JSON.stringify({ vendor, amount, date, category, items }, null, 2));
+    } catch (_) {}
 
     return {
         vendor: vendor,
         amount: amount,
         date: date,
-        category: category
+        category: category,
+        items: items
     };
 }
 
@@ -2125,11 +1857,16 @@ function parseAmountFromText(text) {
     const labeled = text.match(/(?:TOTAL|AMOUNT\s*DUE|BALANCE|BALANCE\s*DUE)[\s:\-]*\$?\s*([\d,]+\.\d{2})/i);
     if (labeled && labeled[1]) return parseFloat(labeled[1].replace(/,/g, ''));
 
-    // Then search for all currency-like numbers and pick the largest reasonable
+    // Then search for all currency-like numbers with cents and pick the largest reasonable
     const matches = Array.from(text.matchAll(/\$?\s*([\d,]{1,7}\.\d{2})/g)).map(m => parseFloat(m[1].replace(/,/g, ''))).filter(v => !isNaN(v) && v > 0.5 && v < 100000);
-    if (matches.length === 0) return null;
-    return Math.max(...matches);
+    if (matches.length > 0) return Math.max(...matches);
+
+    // As a fallback, accept numbers without explicit cents (e.g., '123' or '$123') and pick the largest
+    const fallbackMatches = Array.from(text.matchAll(/\$?\s*([\d,]{1,7}(?:\.\d{1,2})?)/g)).map(m => parseFloat(m[1].replace(/,/g, ''))).filter(v => !isNaN(v) && v > 0.5 && v < 100000);
+    if (fallbackMatches.length === 0) return null;
+    return Math.max(...fallbackMatches);
 }
+
 
 // Sanitize vendor lines: remove odd characters and compress spaces
 function sanitizeVendorLine(line) {
@@ -2153,6 +1890,12 @@ function resetReceiptForm() {
     document.getElementById('ocrStatus').classList.add('hidden');
     document.getElementById('ocrResults').classList.add('hidden');
     document.getElementById('processReceiptBtn').classList.add('hidden');
+    // Remove any in-memory image data to avoid storing photos
+    try {
+        if (window._originalDataURL) delete window._originalDataURL;
+        if (window._croppedDataURL) delete window._croppedDataURL;
+        if (window._originalFile) delete window._originalFile;
+    } catch (e) { /* ignore */ }
 }
 
 // ===== Export Functions =====
@@ -2424,4 +2167,15 @@ function exportProfitLossStatement() {
     doc.save(`Profit_Loss_Statement_${periodLabel.replace(/\s+/g, '_')}_${selectedYear}.pdf`);
     alert('Profit & Loss statement exported successfully!');
 }
+
+// Expose functions used by inline handlers and Firebase callbacks
+Object.assign(window, {
+    loadCompanyInfo,
+    displayHistory,
+    displayExpenses,
+    updateDashboard,
+    togglePaymentStatus,
+    deleteInvoice,
+    regenerateInvoice
+});
 
