@@ -1259,6 +1259,10 @@ function setupReceiptUpload() {
             const reader = new FileReader();
             reader.onload = (event) => {
                 previewImage.src = event.target.result;
+                // Save original data and file for crop/reset
+                window._originalDataURL = event.target.result;
+                window._originalFile = file;
+                window._croppedDataURL = null;
                 receiptPreview.classList.remove('hidden');
                 processBtn.classList.remove('hidden');
                 // Clear any previous processed canvases
@@ -1266,17 +1270,35 @@ function setupReceiptUpload() {
                 // Ensure toggle state is applied (defaults to original)
                 const toggle = document.getElementById('showPreprocessed');
                 if (toggle) toggle.checked = false;
+                // Reset crop UI
+                const applyBtn = document.getElementById('applyCropBtn');
+                const applyProcessBtn = document.getElementById('applyCropProcessBtn');
+                const resetBtn = document.getElementById('resetCropBtn');
+                if (applyBtn) applyBtn.disabled = true;
+                if (applyProcessBtn) applyProcessBtn.disabled = true;
+                if (resetBtn) resetBtn.disabled = true;
             };
             reader.readAsDataURL(file);
         }
     });
 
-    // Handle receipt processing
-    receiptForm.addEventListener('submit', (e) => {
+    // Prefer cropped image when submitting the receipt form
+    receiptForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const file = receiptInput.files[0];
-        if (file) {
-            processReceiptWithOCR(file);
+        let fileToProcess = null;
+        if (window._croppedDataURL) {
+            const blob = await (await fetch(window._croppedDataURL)).blob();
+            fileToProcess = new File([blob], 'cropped.jpg', { type: blob.type });
+        } else if (receiptInput.files && receiptInput.files[0]) {
+            fileToProcess = receiptInput.files[0];
+        } else if (window._originalFile) {
+            fileToProcess = window._originalFile;
+        }
+
+        if (fileToProcess) {
+            await processReceiptWithOCR(fileToProcess);
+        } else {
+            alert('No receipt image selected.');
         }
     });
 
@@ -1448,6 +1470,142 @@ function setupReceiptUpload() {
                     }
                 }
             } catch (e) { /* ignore */ }
+        });
+    }
+
+    // CROPPING UI
+    const previewContainer = document.getElementById('previewContainer');
+    const cropOverlay = document.getElementById('cropOverlay');
+    const startCropBtn = document.getElementById('startCropBtn');
+    const applyCropBtn = document.getElementById('applyCropBtn');
+    const applyCropProcessBtn = document.getElementById('applyCropProcessBtn');
+    const resetCropBtn = document.getElementById('resetCropBtn');
+
+    let cropping = false;
+    let cropStart = null;
+    let cropRect = null;
+
+    function toImageCoords(clientX, clientY) {
+        const imgRect = previewImage.getBoundingClientRect();
+        const x = Math.max(0, Math.min(imgRect.width, clientX - imgRect.left));
+        const y = Math.max(0, Math.min(imgRect.height, clientY - imgRect.top));
+        return { x, y, imgRect };
+    }
+
+    startCropBtn.addEventListener('click', () => {
+        cropping = true;
+        cropOverlay.style.display = 'none';
+        cropOverlay.style.left = '0px';
+        cropOverlay.style.top = '0px';
+        cropOverlay.style.width = '0px';
+        cropOverlay.style.height = '0px';
+        cropStart = null;
+        previewContainer.style.cursor = 'crosshair';
+        // enable reset button when cropping started
+        if (resetCropBtn) resetCropBtn.disabled = false;
+    });
+
+    previewContainer.addEventListener('mousedown', (e) => {
+        if (!cropping) return;
+        const { x, y } = toImageCoords(e.clientX, e.clientY);
+        cropStart = { x, y };
+        cropOverlay.style.left = `${x}px`;
+        cropOverlay.style.top = `${y}px`;
+        cropOverlay.style.width = '0px';
+        cropOverlay.style.height = '0px';
+        cropOverlay.style.display = 'block';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!cropping || !cropStart) return;
+        const { x, y } = toImageCoords(e.clientX, e.clientY);
+        const left = Math.min(cropStart.x, x);
+        const top = Math.min(cropStart.y, y);
+        const width = Math.abs(cropStart.x - x);
+        const height = Math.abs(cropStart.y - y);
+        cropOverlay.style.left = `${left}px`;
+        cropOverlay.style.top = `${top}px`;
+        cropOverlay.style.width = `${width}px`;
+        cropOverlay.style.height = `${height}px`;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (!cropping || !cropStart) return;
+        const { x, y, imgRect } = toImageCoords(e.clientX, e.clientY);
+        const left = Math.min(cropStart.x, x);
+        const top = Math.min(cropStart.y, y);
+        const width = Math.abs(cropStart.x - x);
+        const height = Math.abs(cropStart.y - y);
+        // store normalized crop in displayed pixels
+        cropRect = { left, top, width, height, imgRect };
+        cropping = false;
+        cropStart = null;
+        previewContainer.style.cursor = 'default';
+        if (applyCropBtn) applyCropBtn.disabled = false;
+        if (applyCropProcessBtn) applyCropProcessBtn.disabled = false;
+    });
+
+    function applyCrop() {
+        if (!cropRect || !cropRect.width || !cropRect.height) return null;
+        const img = previewImage;
+        const naturalW = img.naturalWidth;
+        const naturalH = img.naturalHeight;
+        const dispW = cropRect.imgRect.width;
+        const dispH = cropRect.imgRect.height;
+        const sx = Math.round((cropRect.left / dispW) * naturalW);
+        const sy = Math.round((cropRect.top / dispH) * naturalH);
+        const sw = Math.round((cropRect.width / dispW) * naturalW);
+        const sh = Math.round((cropRect.height / dispH) * naturalH);
+        const canvas = document.createElement('canvas');
+        canvas.width = sw;
+        canvas.height = sh;
+        const ctx = canvas.getContext('2d');
+        // If previewImage is currently a processed dataURL, draw image from that source
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+        window._croppedDataURL = dataURL;
+        // update preview to cropped image
+        previewImage.src = dataURL;
+        // clear processed caches
+        window._lastProcessed = null;
+        // disable apply until next selection
+        if (applyCropBtn) applyCropBtn.disabled = true;
+        if (applyCropProcessBtn) applyCropProcessBtn.disabled = true;
+        cropOverlay.style.display = 'none';
+        return dataURL;
+    }
+
+    if (applyCropBtn) {
+        applyCropBtn.addEventListener('click', () => {
+            applyCrop();
+            // enable reset
+            if (resetCropBtn) resetCropBtn.disabled = false;
+        });
+    }
+
+    if (applyCropProcessBtn) {
+        applyCropProcessBtn.addEventListener('click', async () => {
+            const dataURL = applyCrop();
+            if (!dataURL) { alert('No crop selected'); return; }
+            // convert to File and process
+            const blob = await (await fetch(dataURL)).blob();
+            const file = new File([blob], 'cropped.jpg', { type: blob.type });
+            // call OCR directly
+            await processReceiptWithOCR(file);
+        });
+    }
+
+    if (resetCropBtn) {
+        resetCropBtn.addEventListener('click', () => {
+            // restore original preview
+            if (window._originalDataURL) previewImage.src = window._originalDataURL;
+            window._croppedDataURL = null;
+            window._lastProcessed = null;
+            cropOverlay.style.display = 'none';
+            cropRect = null;
+            if (applyCropBtn) applyCropBtn.disabled = true;
+            if (applyCropProcessBtn) applyCropProcessBtn.disabled = true;
+            resetCropBtn.disabled = true;
         });
     }
 }
