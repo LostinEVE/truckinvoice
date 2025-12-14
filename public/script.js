@@ -1372,6 +1372,55 @@ function setupReceiptUpload() {
 
         resetReceiptForm();
     });
+
+    // Retry amount detection using an aggressive numeric-only pass
+    const retryAmountBtn = document.getElementById('retryAmountBtn');
+    if (retryAmountBtn) {
+        retryAmountBtn.addEventListener('click', async () => {
+            const file = receiptInput.files[0];
+            if (!file) { alert('No receipt loaded. Please select an image first.'); return; }
+            retryAmountBtn.disabled = true;
+            const ocrMessage = document.getElementById('ocrMessage');
+            ocrMessage.textContent = 'Retrying amount detection...';
+
+            try {
+                const dataURL = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const { binaryCanvas, grayscaleCanvas } = await preprocessImage(dataURL);
+                const worker = await getTesseractWorker();
+
+                // Temporarily set PSM to single-block and restrict chars to numeric + $ and comma/period
+                await worker.setParameters({ 'tessedit_pageseg_mode': '6', 'tessedit_char_whitelist': '0123456789$.,' });
+
+                const canvasForBottom = grayscaleCanvas;
+                const bottomCanvas = cropCanvas(canvasForBottom, 0, Math.floor(canvasForBottom.height * 0.5), canvasForBottom.width, Math.floor(canvasForBottom.height * 0.5));
+                const bottomRes = await worker.recognize(bottomCanvas);
+                const bottomText = (bottomRes && bottomRes.data) ? bottomRes.data.text || '' : '';
+                const bottomAmount = parseAmountFromText(bottomText);
+                if (bottomAmount) {
+                    document.getElementById('extractedAmount').value = parseFloat(bottomAmount).toFixed(2);
+                    document.getElementById('rawOcrText').value = (document.getElementById('rawOcrText').value || '') + '\n\n-- Retry Amount Detection --\n' + bottomText;
+                    alert('Amount re-detected and updated');
+                } else {
+                    alert('Could not find a better amount on retry');
+                }
+
+                // Restore sensible PSM/whitelist
+                await worker.setParameters({ 'tessedit_pageseg_mode': '3', 'tessedit_char_whitelist': '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$.,:-/ ' });
+            } catch (e) {
+                console.warn('Retry amount detection failed', e);
+                alert('Retry failed. Try a clearer photo or edit the amount manually.');
+            } finally {
+                retryAmountBtn.disabled = false;
+                ocrMessage.textContent = '';
+            }
+        });
+    }
 }
 
 // Process receipt image with Tesseract OCR
@@ -1396,8 +1445,8 @@ async function processReceiptWithOCR(file) {
             reader.readAsDataURL(file);
         });
 
-        // Preprocess image (grayscale, increase contrast, threshold)
-        const processedCanvas = await preprocessImage(dataURL);
+        // Preprocess image (grayscale, increase contrast, adaptive threshold)
+        const { binaryCanvas, grayscaleCanvas } = await preprocessImage(dataURL);
 
         // Optionally show the preprocessed preview to the user for debugging
         try {
@@ -1415,20 +1464,35 @@ async function processReceiptWithOCR(file) {
             }
         });
 
-        const { data } = await worker.recognize(processedCanvas);
-        let extractedText = data.text;
+        // Try recognizing on binary (thresholded) first, then grayscale as a fallback
+        const binaryRes = await worker.recognize(binaryCanvas);
+        const grayRes = await worker.recognize(grayscaleCanvas);
+
+        // Choose result with higher mean word confidence
+        const meanConfidence = (res) => {
+            if (!res || !res.data || !res.data.words || res.data.words.length === 0) return 0;
+            const ws = res.data.words;
+            return ws.reduce((s, w) => s + (w.confidence || 0), 0) / ws.length;
+        };
+
+        const binConf = meanConfidence(binaryRes);
+        const grayConf = meanConfidence(grayRes);
+        const chosen = binConf >= grayConf ? binaryRes : grayRes;
+        let extractedText = (chosen && chosen.data && chosen.data.text) ? chosen.data.text : (binaryRes.data.text || grayRes.data.text || '');
+        console.log('Chosen OCR source:', binConf >= grayConf ? 'binary' : 'grayscale', 'conf:', Math.max(binConf, grayConf));
         console.log('Extracted text:', extractedText);
 
-        // Parse extracted data
-        const parsedData = parseReceiptData(extractedText);
+        // Parse extracted data with improved heuristics using word-level info
+        const parsedData = parseReceiptData(extractedText, chosen && chosen.data ? chosen.data : null, (chosen === binaryRes ? binaryCanvas : grayscaleCanvas));
 
         // If amount wasn't found or is zero, try a focused pass on the bottom of the receipt (where totals usually are)
         try {
             const parsedAmount = parseFloat(parsedData.amount || '0');
             if (!parsedAmount || parsedAmount < 0.5) {
-                const bottomCanvas = cropCanvas(processedCanvas, 0, Math.floor(processedCanvas.height * 0.6), processedCanvas.width, Math.floor(processedCanvas.height * 0.4));
+                const canvasForBottom = (chosen === binaryRes ? binaryCanvas : grayscaleCanvas);
+                const bottomCanvas = cropCanvas(canvasForBottom, 0, Math.floor(canvasForBottom.height * 0.6), canvasForBottom.width, Math.floor(canvasForBottom.height * 0.4));
                 const bottomRes = await worker.recognize(bottomCanvas);
-                const bottomText = bottomRes.data.text || '';
+                const bottomText = bottomRes && bottomRes.data ? bottomRes.data.text || '' : '';
                 console.log('Bottom region text:', bottomText);
                 const bottomAmount = parseAmountFromText(bottomText);
                 if (bottomAmount) {
@@ -1472,7 +1536,8 @@ async function getTesseractWorker(logger) {
     await worker.setParameters({
         'user_defined_dpi': '300',
         'tessedit_char_whitelist': '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$.,:-/ ',
-        'preserve_interword_spaces': '1'
+        'preserve_interword_spaces': '1',
+        'tessedit_pageseg_mode': '3'
     });
 
     _tesseractWorker = worker;
@@ -1488,64 +1553,129 @@ window.addEventListener('beforeunload', async () => {
 
 // Simple preprocessing: scale, grayscale, increase contrast, and apply threshold
 async function preprocessImage(dataURL) {
+    // Returns both a binary (thresholded) canvas and a grayscale canvas
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-            const maxDim = 1600;
+            // Resize up to a reasonable range to help OCR on small images
+            const maxDim = 2000;
+            const minDim = 900;
             let width = img.width;
             let height = img.height;
-            if (Math.max(width, height) > maxDim) {
+
+            // Upscale small images to improve recognition
+            if (Math.max(width, height) < minDim) {
+                const scale = minDim / Math.max(width, height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+            } else if (Math.max(width, height) > maxDim) {
                 const scale = maxDim / Math.max(width, height);
                 width = Math.round(width * scale);
                 height = Math.round(height * scale);
             }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
+            const canvasGray = document.createElement('canvas');
+            canvasGray.width = width;
+            canvasGray.height = height;
+            const ctx = canvasGray.getContext('2d');
 
-            // Draw original
+            // Draw original and get grayscale image
             ctx.drawImage(img, 0, 0, width, height);
-
-            // Get image data
             const imageData = ctx.getImageData(0, 0, width, height);
             const data = imageData.data;
 
-            // Convert to grayscale and compute brightness average
-            let total = 0;
+            // Convert to grayscale
             for (let i = 0; i < data.length; i += 4) {
                 const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
                 data[i] = data[i + 1] = data[i + 2] = gray;
-                total += gray;
-            }
-            const avg = total / (width * height);
-
-            // Increase contrast and apply binary threshold around average
-            const contrast = 40; // -100..100
-            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-            const threshold = Math.min(255, Math.max(0, avg + 10));
-
-            for (let i = 0; i < data.length; i += 4) {
-                // apply contrast
-                let v = data[i];
-                v = factor * (v - 128) + 128;
-                // threshold
-                v = v > threshold ? 255 : 0;
-                data[i] = data[i + 1] = data[i + 2] = v;
             }
 
-            ctx.putImageData(imageData, 0, 0);
+            // Apply a light median filter to reduce salt-and-pepper noise
+            const filtered = medianFilter(imageData, width, height);
+            ctx.putImageData(filtered, 0, 0);
 
-            resolve(canvas);
+            // Create a binary canvas using adaptive thresholding
+            const binaryCanvas = adaptiveThreshold(canvasGray, 32, 10);
+
+            resolve({ binaryCanvas, grayscaleCanvas: canvasGray });
         };
         img.onerror = reject;
         img.src = dataURL;
     });
 }
 
+// Simple 3x3 median filter on ImageData; returns new ImageData
+function medianFilter(imageData, width, height) {
+    const src = imageData.data;
+    const out = new Uint8ClampedArray(src.length);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const vals = [];
+            for (let oy = -1; oy <= 1; oy++) {
+                for (let ox = -1; ox <= 1; ox++) {
+                    const nx = Math.min(width - 1, Math.max(0, x + ox));
+                    const ny = Math.min(height - 1, Math.max(0, y + oy));
+                    const idx = (ny * width + nx) * 4;
+                    vals.push(src[idx]);
+                }
+            }
+            vals.sort((a, b) => a - b);
+            const m = vals[4];
+            const idxOut = (y * width + x) * 4;
+            out[idxOut] = out[idxOut + 1] = out[idxOut + 2] = m;
+            out[idxOut + 3] = 255;
+        }
+    }
+    return new ImageData(out, width, height);
+}
+
+// Adaptive thresholding on a canvas: tileSize determines local window, C is subtracted from mean
+function adaptiveThreshold(sourceCanvas, tileSize = 32, C = 10) {
+    const w = sourceCanvas.width;
+    const h = sourceCanvas.height;
+    const ctx = sourceCanvas.getContext('2d');
+    const src = ctx.getImageData(0, 0, w, h);
+
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = w;
+    outCanvas.height = h;
+    const outCtx = outCanvas.getContext('2d');
+    const outData = outCtx.createImageData(w, h);
+
+    // Precompute integral image for fast local mean
+    const integral = new Uint32Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) {
+        let rowSum = 0;
+        for (let x = 0; x < w; x++) {
+            const v = src.data[(y * w + x) * 4];
+            rowSum += v;
+            integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + rowSum;
+        }
+    }
+
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const x0 = Math.max(0, x - tileSize >> 1);
+            const y0 = Math.max(0, y - tileSize >> 1);
+            const x1 = Math.min(w - 1, x0 + tileSize - 1);
+            const y1 = Math.min(h - 1, y0 + tileSize - 1);
+            const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+            const sum = integral[(y1 + 1) * (w + 1) + (x1 + 1)] - integral[y0 * (w + 1) + (x1 + 1)] - integral[(y1 + 1) * (w + 1) + x0] + integral[y0 * (w + 1) + x0];
+            const mean = sum / area;
+            const val = src.data[(y * w + x) * 4];
+            const v = val > (mean - C) ? 255 : 0;
+            const idx = (y * w + x) * 4;
+            outData.data[idx] = outData.data[idx + 1] = outData.data[idx + 2] = v;
+            outData.data[idx + 3] = 255;
+        }
+    }
+
+    outCtx.putImageData(outData, 0, 0);
+    return outCanvas;
+}
+
 // Parse receipt data from OCR text
-function parseReceiptData(text) {
+function parseReceiptData(text, tesseractData = null, canvas = null) {
     // Default values
     let vendor = 'Unknown Vendor';
     let amount = '0.00';
@@ -1559,10 +1689,45 @@ function parseReceiptData(text) {
     console.log('OCR Extracted Text:', text);
     console.log('Lines:', lines);
 
-    // Extract vendor name heuristically from the top of the receipt
-    // Prefer a short meaningful line with letters (not dashed separators or addresses)
-    const vendorCandidates = lines.slice(0, Math.min(8, lines.length));
-    const vendorBlacklist = ['RECEIPT', 'INVOICE', 'TOTAL', 'SUBTOTAL', 'TAX', 'ITEM', 'PRICE', 'AMOUNT', 'VISIT', 'LOYALTY', 'TRANSACTION', 'AUTH', 'CHANGE'];
+    // If tesseract provided word-level data, try to pick a vendor line by confidence and position
+    let vendorCandidates = lines.slice(0, Math.min(8, lines.length));
+    if (tesseractData && tesseractData.words && canvas) {
+        try {
+            const words = tesseractData.words;
+            // Group words into lines using line_num and paragraph/block info
+            const lineMap = new Map();
+            for (const w of words) {
+                const key = `${w.block_num || 0}_${w.par_num || 0}_${w.line_num || 0}`;
+                if (!lineMap.has(key)) lineMap.set(key, []);
+                lineMap.get(key).push(w);
+            }
+
+            const linesFromWords = [];
+            for (const [k, ws] of lineMap.entries()) {
+                const txt = ws.map(w => w.text).join(' ').trim();
+                if (!txt) continue;
+                const avgConf = ws.reduce((s, w) => s + (w.confidence || 0), 0) / ws.length;
+                const avgY = ws.reduce((s, w) => s + (w.bbox ? (w.bbox.y0 || 0) : (w.y0 || 0)), 0) / ws.length;
+                linesFromWords.push({ text: txt, avgConf, avgY });
+            }
+
+            // Prefer lines in the top 30% with highest confidence
+            const topRegion = (canvas && canvas.height) ? canvas.height * 0.3 : Infinity;
+            const topLines = linesFromWords.filter(l => l.avgY <= topRegion && /[A-Za-z]{2,}/.test(l.text));
+            topLines.sort((a, b) => b.avgConf - a.avgConf);
+            if (topLines.length > 0) {
+                // Use the topmost high-confidence line as the vendor
+                vendor = sanitizeVendorLine(topLines[0].text);
+            }
+            // If we found a vendor via words, set vendorCandidates to that for fallback consistency
+            if (vendor !== 'Unknown Vendor') {
+                vendorCandidates = [vendor];
+            }
+        } catch (e) {
+            console.warn('Vendor extraction from words failed', e);
+        }
+    }
+    const vendorBlacklist = ['RECEIPT', 'INVOICE', 'TOTAL', 'SUBTOTAL', 'TAX', 'ITEM', 'PRICE', 'AMOUNT', 'VISIT', 'LOYALTY', 'TRANSACTION', 'AUTH', 'CHANGE', 'QTY'];
     const cleanedCandidates = [];
     for (const rawLine of vendorCandidates) {
         const line = rawLine.trim();
@@ -1646,6 +1811,31 @@ function parseReceiptData(text) {
     } else if (amounts.length > 0) {
         // If no labeled amount, prefer the largest sensible amount
         amount = Math.max(...amounts).toFixed(2);
+    }
+
+    // If tesseract word data available, try to find 'TOTAL' labels and nearby numeric tokens
+    if (tesseractData && tesseractData.words && tesseractData.words.length > 0) {
+        try {
+            const ws = tesseractData.words;
+            for (let i = 0; i < ws.length; i++) {
+                const w = ws[i];
+                if (/TOTAL|AMOUNT|BALANCE/i.test(w.text)) {
+                    // Search same line for numeric tokens
+                    const sameLine = ws.filter(x => x.line_num === w.line_num).map(x => x.text).join(' ');
+                    const m = (sameLine.match(/\$?\s*([\d,]+\.\d{2})/) || [])[1];
+                    if (m) { amount = parseFloat(m.replace(/,/g, '')).toFixed(2); break; }
+
+                    // Search nearby words (within +/-3 words)
+                    for (let j = Math.max(0, i - 3); j <= Math.min(ws.length - 1, i + 3); j++) {
+                        const nm = (ws[j].text.match(/\$?\s*([\d,]+\.\d{2})/) || [])[1];
+                        if (nm) { amount = parseFloat(nm.replace(/,/g, '')).toFixed(2); break; }
+                    }
+                    if (amount && parseFloat(amount) > 0) break;
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 
     // If we somehow parsed amounts with commas, ensure numeric string (already handled above)
@@ -1744,6 +1934,11 @@ function parseAmountFromText(text) {
     const matches = Array.from(text.matchAll(/\$?\s*([\d,]{1,7}\.\d{2})/g)).map(m => parseFloat(m[1].replace(/,/g, ''))).filter(v => !isNaN(v) && v > 0.5 && v < 100000);
     if (matches.length === 0) return null;
     return Math.max(...matches);
+}
+
+// Sanitize vendor lines: remove odd characters and compress spaces
+function sanitizeVendorLine(line) {
+    return line.replace(/[^A-Za-z0-9 &'.,()-]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 // Crop a canvas and return a new canvas with that region
