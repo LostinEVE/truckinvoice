@@ -1237,6 +1237,9 @@ function setupReceiptUpload() {
     const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
     const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
     const fileInputLabel = document.querySelector('.file-input-label');
+    const rawOcrText = document.getElementById('rawOcrText');
+    const copyRawBtn = document.getElementById('copyRawBtn');
+    const saveRawExpenseBtn = document.getElementById('saveRawExpenseBtn');
 
     // Make the file input label clickable and enable camera on mobile
     fileInputLabel.addEventListener('click', () => {
@@ -1271,6 +1274,58 @@ function setupReceiptUpload() {
             processReceiptWithOCR(file);
         }
     });
+
+    // Copy raw OCR text to clipboard
+    if (copyRawBtn) {
+        copyRawBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(rawOcrText.value || '');
+                alert('Raw OCR text copied to clipboard');
+            } catch (e) {
+                alert('Unable to copy text. You can select and copy manually.');
+            }
+        });
+    }
+
+    // Save raw OCR text as an expense (verbatim)
+    if (saveRawExpenseBtn) {
+        saveRawExpenseBtn.addEventListener('click', () => {
+            const rawText = rawOcrText.value || '';
+            if (!rawText.trim()) {
+                alert('No OCR text available to save. Please process an image first.');
+                return;
+            }
+
+            // Ask user for category (use selected extractedCategory if present)
+            const categorySelect = document.getElementById('extractedCategory');
+            const category = (categorySelect && categorySelect.value) ? categorySelect.value : 'other';
+
+            // Try to derive a vendor from first meaningful line
+            const firstLine = rawText.split('\n').map(l => l.trim()).find(l => l.length > 2 && !/^[-_]{2,}/.test(l));
+            const vendor = firstLine || 'Receipt Upload';
+
+            // Try to parse amount if present
+            const amount = parseAmountFromText(rawText) || 0;
+
+            const dateInput = document.getElementById('extractedDate');
+            const date = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().split('T')[0];
+
+            const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+            const newExpense = {
+                id: Date.now(),
+                date: date,
+                amount: amount,
+                category: category,
+                vendor: vendor,
+                notes: rawText
+            };
+            expenses.push(newExpense);
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+
+            alert('Raw OCR text saved as expense. Review in Expenses.');
+            resetReceiptForm();
+        });
+    }
 
     // Add as expense button
     addAsExpenseBtn.addEventListener('click', () => {
