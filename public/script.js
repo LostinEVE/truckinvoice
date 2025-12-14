@@ -1361,11 +1361,32 @@ async function processReceiptWithOCR(file) {
         });
 
         const { data } = await worker.recognize(processedCanvas);
-        const extractedText = data.text;
+        let extractedText = data.text;
         console.log('Extracted text:', extractedText);
 
         // Parse extracted data
         const parsedData = parseReceiptData(extractedText);
+
+        // If amount wasn't found or is zero, try a focused pass on the bottom of the receipt (where totals usually are)
+        try {
+            const parsedAmount = parseFloat(parsedData.amount || '0');
+            if (!parsedAmount || parsedAmount < 0.5) {
+                const bottomCanvas = cropCanvas(processedCanvas, 0, Math.floor(processedCanvas.height * 0.6), processedCanvas.width, Math.floor(processedCanvas.height * 0.4));
+                const bottomRes = await worker.recognize(bottomCanvas);
+                const bottomText = bottomRes.data.text || '';
+                console.log('Bottom region text:', bottomText);
+                const bottomAmount = parseAmountFromText(bottomText);
+                if (bottomAmount) {
+                    parsedData.amount = bottomAmount.toFixed(2);
+                } else {
+                    // As a last resort, try a numeric-only search on the whole text
+                    const fallback = parseAmountFromText(extractedText);
+                    if (fallback) parsedData.amount = fallback.toFixed(2);
+                }
+            }
+        } catch (e) {
+            console.warn('Bottom-pass amount detection failed', e);
+        }
 
         // Display results
         document.getElementById('extractedVendor').value = parsedData.vendor;
@@ -1484,21 +1505,38 @@ function parseReceiptData(text) {
     console.log('Lines:', lines);
 
     // Extract vendor name heuristically from the top of the receipt
-    // Prefer the first short non-numeric line that isn't a generic label like 'RECEIPT' or an address/phone
-    const vendorCandidates = lines.slice(0, Math.min(6, lines.length));
-    for (const line of vendorCandidates) {
+    // Prefer a short meaningful line with letters (not dashed separators or addresses)
+    const vendorCandidates = lines.slice(0, Math.min(8, lines.length));
+    const vendorBlacklist = ['RECEIPT', 'INVOICE', 'TOTAL', 'SUBTOTAL', 'TAX', 'ITEM', 'PRICE', 'AMOUNT', 'VISIT', 'LOYALTY', 'TRANSACTION', 'AUTH', 'CHANGE'];
+    const cleanedCandidates = [];
+    for (const rawLine of vendorCandidates) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        // Skip lines that are mostly dashes/underscores or contain many repeated non-letters
+        if (/^[\-=_]{3,}$/.test(line) || /[-_]{6,}/.test(line)) continue;
         const upperLine = line.toUpperCase();
-        // Skip obvious non-vendor lines
-        if (upperLine.includes('RECEIPT') || upperLine.includes('INVOICE') || /\d{3}[-\.\s]?\d{3}[-\.\s]?\d{4}/.test(line)) continue; // phone
-        if (/^\d+$/.test(line)) continue;
-        if (line.length < 3 || line.length > 60) continue;
-
-        // Avoid lines that look like addresses (contain 'ST', 'RD', 'AVE', number + street)
+        if (vendorBlacklist.some(b => upperLine.includes(b))) continue;
+        // Skip lines that look like phone numbers, dates, or long addresses
+        if (/\d{3}[-\.\s]?\d{3}[-\.\s]?\d{4}/.test(line)) continue; // phone
         if (/\d+\s+\w+\s+(ST|RD|AVE|BLVD|LN|DR|WAY)\b/i.test(line)) continue;
+        if (/^\d/.test(line) && line.length < 6) continue;
 
-        // Take this line as vendor
-        vendor = line;
-        break;
+        // sanitize weird characters and compress spaces
+        const sanitized = line.replace(/[^A-Za-z0-9 &'.,()-]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (sanitized.length < 3) continue;
+        cleanedCandidates.push(sanitized);
+    }
+
+    // Prefer candidate with at least two words and minimal numeric content
+    for (const c of cleanedCandidates) {
+        if (/[A-Za-z]/.test(c) && c.split(' ').length >= 2 && ( (c.match(/\d/g) || []).length < 3 )) {
+            vendor = c;
+            break;
+        }
+    }
+    // Fallback: first cleaned candidate
+    if (vendor === 'Unknown Vendor' && cleanedCandidates.length > 0) {
+        vendor = cleanedCandidates[0];
     }
 
     // Look for dollar amounts - improved pattern matching (support commas)
@@ -1554,6 +1592,8 @@ function parseReceiptData(text) {
         // If no labeled amount, prefer the largest sensible amount
         amount = Math.max(...amounts).toFixed(2);
     }
+
+    // If we somehow parsed amounts with commas, ensure numeric string (already handled above)
 
     // Try to extract date (multiple formats)
     const datePatterns = [
@@ -1636,6 +1676,29 @@ function parseReceiptData(text) {
         date: date,
         category: category
     };
+}
+
+// Try to extract an amount value from arbitrary OCR text (robust to commas and labels)
+function parseAmountFromText(text) {
+    if (!text || typeof text !== 'string') return null;
+    // First look for labeled patterns
+    const labeled = text.match(/(?:TOTAL|AMOUNT\s*DUE|BALANCE|BALANCE\s*DUE)[\s:\-]*\$?\s*([\d,]+\.\d{2})/i);
+    if (labeled && labeled[1]) return parseFloat(labeled[1].replace(/,/g, ''));
+
+    // Then search for all currency-like numbers and pick the largest reasonable
+    const matches = Array.from(text.matchAll(/\$?\s*([\d,]{1,7}\.\d{2})/g)).map(m => parseFloat(m[1].replace(/,/g, ''))).filter(v => !isNaN(v) && v > 0.5 && v < 100000);
+    if (matches.length === 0) return null;
+    return Math.max(...matches);
+}
+
+// Crop a canvas and return a new canvas with that region
+function cropCanvas(sourceCanvas, x, y, w, h) {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(sourceCanvas, x, y, w, h, 0, 0, w, h);
+    return canvas;
 }
 
 // Reset receipt form
