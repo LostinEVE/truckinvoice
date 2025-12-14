@@ -65,3 +65,21 @@ This app is **carrier-agnostic** and works for:
 ---
 
 **Perfect for owner-operators and independent drivers who need professional invoices fast.**
+
+## Deployment
+
+This project uses Firebase Hosting. To deploy manually, run `firebase deploy --only hosting` from the project root.
+
+CI/CD: GitHub Actions
+
+- I added a GitHub Actions workflow: [/.github/workflows/firebase-hosting-deploy.yml](.github/workflows/firebase-hosting-deploy.yml).
+- It deploys preview channels for pull requests and deploys to production when pushing to `main`.
+
+Secrets required for the workflow:
+
+- `FIREBASE_SERVICE_ACCOUNT`: JSON of a Firebase service account (create in Firebase Console → Project Settings → Service Accounts → Generate private key). Add the entire JSON as a GitHub secret with this name.
+- `GITHUB_TOKEN`: provided automatically by GitHub Actions.
+
+If you prefer the quick token method, create a CI token with `firebase login:ci` and store it as `FIREBASE_TOKEN` (update workflow accordingly).
+
+If you'd like, I can create a PR to add the secrets (I can't add secrets from here), or I can add an alternate workflow that uses a CI token instead.
