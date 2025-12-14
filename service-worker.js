@@ -1,11 +1,15 @@
-const CACHE_NAME = 'truckinvoice-v9';
+const CACHE_NAME = 'truckinvoice-v10-sync';
 const urlsToCache = [
   './index.html',
   './style.css',
   './script.js',
+  './firebase-config.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js',
-  'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+  'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js'
 ];
 
 // Install service worker and cache files

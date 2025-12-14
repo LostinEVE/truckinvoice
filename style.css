@@ -4,6 +4,243 @@
     box-sizing: border-box;
 }
 
+/* Authentication Modal Styles */
+.auth-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+.auth-modal-content {
+    background: white;
+    border-radius: 15px;
+    padding: 40px;
+    max-width: 450px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.auth-modal-content h2 {
+    color: #667eea;
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 28px;
+}
+
+.auth-subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 12px 10px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #666;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.auth-tab:hover {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.auth-tab.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.auth-form {
+    display: none;
+}
+
+.auth-form.active {
+    display: block;
+}
+
+.btn-auth {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 10px;
+}
+
+.btn-auth:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-auth:active {
+    transform: translateY(0);
+}
+
+.anonymous-info {
+    background: #f0f4ff;
+    padding: 15px;
+    border-radius: 8px;
+    color: #555;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    border-left: 4px solid #667eea;
+}
+
+.auth-error {
+    background: #fff5f5;
+    border: 2px solid #dc3545;
+    border-radius: 8px;
+    padding: 12px 15px;
+    color: #721c24;
+    font-size: 14px;
+    margin-top: 15px;
+    text-align: center;
+}
+
+.auth-error.hidden {
+    display: none;
+}
+
+/* Sync Status Bar */
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s;
+}
+
+.sync-status.status-synced {
+    border-left-color: #28a745;
+    background: #f0fff4;
+}
+
+.sync-status.status-syncing {
+    border-left-color: #667eea;
+    background: #f0f4ff;
+}
+
+.sync-status.status-error {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+}
+
+.sync-status.status-offline {
+    border-left-color: #6c757d;
+    background: #f5f5f5;
+}
+
+.sync-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.status-syncing .sync-icon {
+    animation: spin 2s linear infinite;
+}
+
+#syncStatusText {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.status-synced #syncStatusText {
+    color: #28a745;
+}
+
+.status-syncing #syncStatusText {
+    color: #667eea;
+}
+
+.status-error #syncStatusText {
+    color: #dc3545;
+}
+
+.status-offline #syncStatusText {
+    color: #6c757d;
+}
+
+.btn-signout {
+    padding: 8px 16px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-signout:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+.btn-signout.hidden {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .auth-modal-content {
+        padding: 25px;
+    }
+
+    .auth-modal-content h2 {
+        font-size: 24px;
+    }
+
+    .auth-tab {
+        font-size: 11px;
+        padding: 10px 5px;
+    }
+
+    .sync-status {
+        flex-wrap: wrap;
+        padding: 10px 15px;
+    }
+
+    .btn-signout {
+        width: 100%;
+        margin-top: 5px;
+    }
+}
+
 body {
     font-family: Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

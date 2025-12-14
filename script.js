@@ -47,12 +47,25 @@ function loadCompanyInfo() {
     if (userEmail) document.getElementById('userEmail').value = userEmail;
 }
 
-// Save company info to localStorage
+// Save company info to localStorage and cloud
 function saveCompanyInfo() {
-    localStorage.setItem('companyName', document.getElementById('companyName').value);
-    localStorage.setItem('companyAddress', document.getElementById('companyAddress').value);
-    localStorage.setItem('carrierId', document.getElementById('carrierId').value);
-    localStorage.setItem('userEmail', document.getElementById('userEmail').value);
+    const companyData = {
+        companyName: document.getElementById('companyName').value,
+        companyAddress: document.getElementById('companyAddress').value,
+        carrierId: document.getElementById('carrierId').value,
+        userEmail: document.getElementById('userEmail').value
+    };
+
+    // Save to localStorage
+    localStorage.setItem('companyName', companyData.companyName);
+    localStorage.setItem('companyAddress', companyData.companyAddress);
+    localStorage.setItem('carrierId', companyData.carrierId);
+    localStorage.setItem('userEmail', companyData.userEmail);
+
+    // Sync to cloud if enabled
+    if (typeof saveCompanyInfoToCloud === 'function') {
+        saveCompanyInfoToCloud(companyData);
+    }
 }
 
 // Format date from YYYY-MM-DD to MM/DD/YYYY
@@ -370,6 +383,11 @@ function saveInvoiceToHistory(data) {
     };
     invoices.unshift(invoice); // Add to beginning
     localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
+
+    // Sync to cloud if enabled
+    if (typeof saveInvoiceToCloud === 'function') {
+        saveInvoiceToCloud(invoice);
+    }
 }
 
 function getInvoiceHistory() {
@@ -544,6 +562,11 @@ function deleteInvoice(id) {
         invoices = invoices.filter(inv => inv.id !== id);
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
         displayHistory();
+
+        // Delete from cloud if enabled
+        if (typeof deleteInvoiceFromCloud === 'function') {
+            deleteInvoiceFromCloud(id);
+        }
     }
 }
 
@@ -554,6 +577,11 @@ function togglePaymentStatus(id, isPaid) {
         invoice.paymentStatus = isPaid ? 'paid' : 'unpaid';
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
         displayHistory();
+
+        // Sync to cloud if enabled
+        if (typeof saveInvoiceToCloud === 'function') {
+            saveInvoiceToCloud(invoice);
+        }
 
         // Show confirmation message
         const message = isPaid
@@ -824,6 +852,11 @@ function saveExpense(expense) {
     const expenses = getExpenses();
     expenses.unshift(expense);
     localStorage.setItem('expenses', JSON.stringify(expenses));
+
+    // Sync to cloud if enabled
+    if (typeof saveExpenseToCloud === 'function') {
+        saveExpenseToCloud(expense);
+    }
 }
 
 function getExpenses() {
@@ -889,6 +922,11 @@ function deleteExpense(id) {
         localStorage.setItem('expenses', JSON.stringify(expenses));
         displayExpenses();
         updateDashboard();
+
+        // Delete from cloud if enabled
+        if (typeof deleteExpenseFromCloud === 'function') {
+            deleteExpenseFromCloud(id);
+        }
     }
 }
 

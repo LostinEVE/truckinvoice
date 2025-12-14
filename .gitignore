@@ -1,3 +1,6 @@
 create-icons.html
 *.pdf
 *.jpg
+node_modules/
+package-lock.json
+package.json
