@@ -1333,49 +1333,139 @@ async function processReceiptWithOCR(file) {
     ocrMessage.textContent = 'Processing receipt with OCR... This may take a moment.';
 
     try {
-        // Read file as data URL
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const imageData = e.target.result;
+        // Read file as data URL and preprocess image for better OCR
+        const dataURL = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
 
-            try {
-                // Use Tesseract to extract text
-                const result = await Tesseract.recognize(
-                    imageData,
-                    'eng',
-                    {
-                        logger: (m) => {
-                            if (m.status === 'recognizing') {
-                                ocrMessage.textContent = `Processing... ${Math.round(m.progress * 100)}%`;
-                            }
-                        }
-                    }
-                );
+        // Preprocess image (grayscale, increase contrast, threshold)
+        const processedCanvas = await preprocessImage(dataURL);
 
-                const extractedText = result.data.text;
-                console.log('Extracted text:', extractedText);
+        // Optionally show the preprocessed preview to the user for debugging
+        try {
+            const previewImage = document.getElementById('previewImage');
+            previewImage.src = processedCanvas.toDataURL();
+        } catch (e) {
+            // ignore
+        }
 
-                // Parse extracted data
-                const parsedData = parseReceiptData(extractedText);
-
-                // Display results
-                document.getElementById('extractedVendor').value = parsedData.vendor;
-                document.getElementById('extractedAmount').value = parsedData.amount;
-                document.getElementById('extractedDate').value = parsedData.date;
-                document.getElementById('extractedCategory').value = parsedData.category;
-
-                ocrStatus.classList.add('hidden');
-                ocrResults.classList.remove('hidden');
-            } catch (error) {
-                console.error('OCR Error:', error);
-                ocrMessage.textContent = 'Error processing image. Please try again with a clearer photo.';
+        // Use a Tesseract worker for better control and parameters
+        const worker = await getTesseractWorker((m) => {
+            // Update progress UI
+            if (m.status && (m.status.includes('recogniz') || m.status.includes('analyz'))) {
+                ocrMessage.textContent = `Processing... ${Math.round((m.progress || 0) * 100)}%`;
             }
-        };
-        reader.readAsDataURL(file);
+        });
+
+        const { data } = await worker.recognize(processedCanvas);
+        const extractedText = data.text;
+        console.log('Extracted text:', extractedText);
+
+        // Parse extracted data
+        const parsedData = parseReceiptData(extractedText);
+
+        // Display results
+        document.getElementById('extractedVendor').value = parsedData.vendor;
+        document.getElementById('extractedAmount').value = parsedData.amount;
+        document.getElementById('extractedDate').value = parsedData.date;
+        document.getElementById('extractedCategory').value = parsedData.category;
+
+        ocrStatus.classList.add('hidden');
+        ocrResults.classList.remove('hidden');
     } catch (error) {
-        console.error('File reading error:', error);
-        alert('Error reading file. Please try again.');
+        console.error('OCR Error:', error);
+        ocrMessage.textContent = 'Error processing image. Please try again with a clearer photo.';
+        processBtn.classList.remove('hidden');
     }
+}
+
+// Create or return a cached Tesseract worker with sensible params
+let _tesseractWorker = null;
+async function getTesseractWorker(logger) {
+    if (_tesseractWorker) return _tesseractWorker;
+
+    const worker = Tesseract.createWorker({ logger });
+    await worker.load();
+    await worker.loadLanguage('eng');
+    await worker.initialize('eng');
+
+    // Improve recognition for receipts
+    await worker.setParameters({
+        'user_defined_dpi': '300',
+        'tessedit_char_whitelist': '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$.,:-/ ',
+        'preserve_interword_spaces': '1'
+    });
+
+    _tesseractWorker = worker;
+    return worker;
+}
+
+// Cleanup worker on unload
+window.addEventListener('beforeunload', async () => {
+    if (_tesseractWorker) {
+        try { await _tesseractWorker.terminate(); } catch (e) { /* ignore */ }
+    }
+});
+
+// Simple preprocessing: scale, grayscale, increase contrast, and apply threshold
+async function preprocessImage(dataURL) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const maxDim = 1600;
+            let width = img.width;
+            let height = img.height;
+            if (Math.max(width, height) > maxDim) {
+                const scale = maxDim / Math.max(width, height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // Draw original
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Convert to grayscale and compute brightness average
+            let total = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+                data[i] = data[i + 1] = data[i + 2] = gray;
+                total += gray;
+            }
+            const avg = total / (width * height);
+
+            // Increase contrast and apply binary threshold around average
+            const contrast = 40; // -100..100
+            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+            const threshold = Math.min(255, Math.max(0, avg + 10));
+
+            for (let i = 0; i < data.length; i += 4) {
+                // apply contrast
+                let v = data[i];
+                v = factor * (v - 128) + 128;
+                // threshold
+                v = v > threshold ? 255 : 0;
+                data[i] = data[i + 1] = data[i + 2] = v;
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+
+            resolve(canvas);
+        };
+        img.onerror = reject;
+        img.src = dataURL;
+    });
 }
 
 // Parse receipt data from OCR text
@@ -1411,12 +1501,12 @@ function parseReceiptData(text) {
         break;
     }
 
-    // Look for dollar amounts - improved pattern matching
+    // Look for dollar amounts - improved pattern matching (support commas)
     const amountPatterns = [
-        /(?:TOTAL|AMOUNT|SALE|PURCHASE|DUE)[\s:]*\$?\s*(\d+\.\d{2})/i,  // "TOTAL: $50.00" or "TOTAL 50.00"
-        /\$\s*(\d+\.\d{2})\s*(?:TOTAL|AMOUNT|SALE|PURCHASE)/i,           // "$50.00 TOTAL"
-        /(?:^|\s)\$\s*(\d+\.\d{2})(?:\s|$)/gm,                           // Standalone "$50.00"
-        /(?:^|\s)(\d+\.\d{2})\s*(?:USD|US)?(?:\s|$)/gm                   // "50.00" or "50.00 USD"
+        /(?:TOTAL|AMOUNT|SALE|PURCHASE|DUE)[\s:]*\$?\s*([\d,]+\.\d{2})/i,  // "TOTAL: $1,234.56" or "TOTAL 50.00"
+        /\$\s*([\d,]+\.\d{2})\s*(?:TOTAL|AMOUNT|SALE|PURCHASE)/i,           // "$50.00 TOTAL"
+        /(?:^|\s)\$\s*([\d,]+\.\d{2})(?:\s|$)/gm,                           // Standalone "$50.00"
+        /(?:^|\s)([\d,]+\.\d{2})\s*(?:USD|US)?(?:\s|$)/gm                   // "50.00" or "1,234.56 USD"
     ];
 
     const amounts = [];
@@ -1432,9 +1522,9 @@ function parseReceiptData(text) {
     // If no specific amount found, get all dollar amounts
     if (amounts.length === 0) {
         let match;
-        const generalPattern = /\$?\s*(\d{1,5}\.\d{2})/g;
+        const generalPattern = /\$?\s*([\d,]{1,7}\.\d{2})/g;
         while ((match = generalPattern.exec(text)) !== null) {
-            const val = parseFloat(match[1]);
+            const val = parseFloat(match[1].replace(/,/g, ''));
             // Filter out unrealistic amounts (likely dates or other numbers)
             if (val > 0.50 && val < 10000) {
                 amounts.push(val);
@@ -1445,15 +1535,15 @@ function parseReceiptData(text) {
     // Prefer amounts that are explicitly labeled as TOTAL/AMOUNT DUE/BALANCE
     // Search for labeled amounts first (look for label within 30 chars)
     let labeledAmount = null;
-    const labeledPatterns = [/TOTAL\s*[:]?\s*\$?\s*(\d+\.\d{2})/i,
-                             /AMOUNT\s*DUE\s*[:]?\s*\$?\s*(\d+\.\d{2})/i,
-                             /BALANCE\s*DUE\s*[:]?\s*\$?\s*(\d+\.\d{2})/i,
-                             /AMOUNT\s*[:]?\s*\$?\s*(\d+\.\d{2})/i];
+    const labeledPatterns = [/TOTAL\s*[:]?[\s]*\$?[\s]*([\d,]+\.\d{2})/i,
+                             /AMOUNT\s*DUE\s*[:]?[\s]*\$?[\s]*([\d,]+\.\d{2})/i,
+                             /BALANCE\s*DUE\s*[:]?[\s]*\$?[\s]*([\d,]+\.\d{2})/i,
+                             /AMOUNT\s*[:]?[\s]*\$?[\s]*([\d,]+\.\d{2})/i];
 
     for (const pat of labeledPatterns) {
         const m = pat.exec(text);
         if (m) {
-            labeledAmount = parseFloat(m[1]);
+            labeledAmount = parseFloat(m[1].replace(/,/g, ''));
             break;
         }
     }
