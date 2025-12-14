@@ -1393,32 +1393,22 @@ function parseReceiptData(text) {
     console.log('OCR Extracted Text:', text);
     console.log('Lines:', lines);
 
-    // Extract vendor name - look for common fuel stations and businesses
-    const fuelStations = ['PILOT', 'FLYING J', 'LOVES', "LOVE'S", 'TA', 'TRAVEL CENTER', 'PETRO',
-                          'SHELL', 'EXXON', 'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON',
-                          'VALERO', 'CIRCLE K', 'WAWA', 'SHEETZ', 'CASEY'];
-
-    // Try to find vendor in first few lines
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-        const line = lines[i];
+    // Extract vendor name heuristically from the top of the receipt
+    // Prefer the first short non-numeric line that isn't a generic label like 'RECEIPT' or an address/phone
+    const vendorCandidates = lines.slice(0, Math.min(6, lines.length));
+    for (const line of vendorCandidates) {
         const upperLine = line.toUpperCase();
+        // Skip obvious non-vendor lines
+        if (upperLine.includes('RECEIPT') || upperLine.includes('INVOICE') || /\d{3}[-\.\s]?\d{3}[-\.\s]?\d{4}/.test(line)) continue; // phone
+        if (/^\d+$/.test(line)) continue;
+        if (line.length < 3 || line.length > 60) continue;
 
-        // Check for fuel stations
-        for (const station of fuelStations) {
-            if (upperLine.includes(station)) {
-                vendor = line;
-                category = 'fuel';
-                break;
-            }
-        }
+        // Avoid lines that look like addresses (contain 'ST', 'RD', 'AVE', number + street)
+        if (/\d+\s+\w+\s+(ST|RD|AVE|BLVD|LN|DR|WAY)\b/i.test(line)) continue;
 
-        // If vendor found, break
-        if (vendor !== 'Unknown Vendor') break;
-
-        // Otherwise, use first non-empty line that's not a number or address
-        if (line.length > 3 && line.length < 50 && !/^\d+$/.test(line) && !upperLine.includes('RECEIPT')) {
-            vendor = line;
-        }
+        // Take this line as vendor
+        vendor = line;
+        break;
     }
 
     // Look for dollar amounts - improved pattern matching
@@ -1452,21 +1442,27 @@ function parseReceiptData(text) {
         }
     }
 
-    // For fuel receipts, look for "FUEL SALE" or "TOTAL SALE" amounts specifically
-    if (category === 'fuel') {
-        const fuelPattern = /(?:FUEL\s+SALE|TOTAL\s+SALE|PRODUCT\s+TOTAL)[\s:]*\$?\s*(\d+\.\d{2})/i;
-        const fuelMatch = fuelPattern.exec(text);
-        if (fuelMatch) {
-            amount = parseFloat(fuelMatch[1]).toFixed(2);
-        } else if (amounts.length > 0) {
-            // Use the largest amount for fuel (usually the total)
-            amount = Math.max(...amounts).toFixed(2);
+    // Prefer amounts that are explicitly labeled as TOTAL/AMOUNT DUE/BALANCE
+    // Search for labeled amounts first (look for label within 30 chars)
+    let labeledAmount = null;
+    const labeledPatterns = [/TOTAL\s*[:]?\s*\$?\s*(\d+\.\d{2})/i,
+                             /AMOUNT\s*DUE\s*[:]?\s*\$?\s*(\d+\.\d{2})/i,
+                             /BALANCE\s*DUE\s*[:]?\s*\$?\s*(\d+\.\d{2})/i,
+                             /AMOUNT\s*[:]?\s*\$?\s*(\d+\.\d{2})/i];
+
+    for (const pat of labeledPatterns) {
+        const m = pat.exec(text);
+        if (m) {
+            labeledAmount = parseFloat(m[1]);
+            break;
         }
-    } else {
-        // For other receipts, prefer amounts labeled as "TOTAL" or use the largest
-        if (amounts.length > 0) {
-            amount = Math.max(...amounts).toFixed(2);
-        }
+    }
+
+    if (labeledAmount !== null) {
+        amount = labeledAmount.toFixed(2);
+    } else if (amounts.length > 0) {
+        // If no labeled amount, prefer the largest sensible amount
+        amount = Math.max(...amounts).toFixed(2);
     }
 
     // Try to extract date (multiple formats)
@@ -1519,27 +1515,27 @@ function parseReceiptData(text) {
         }
     }
 
-    // Enhanced categorization based on keywords
-    if (upperText.includes('FUEL') || upperText.includes('GAS') || upperText.includes('DIESEL') ||
-        upperText.includes('SHELL') || upperText.includes('PILOT') || upperText.includes('FLYING J') ||
-        upperText.includes('LOVE') || upperText.includes('SPEEDWAY') || upperText.includes('TA ') ||
-        upperText.includes('PETRO') || upperText.includes('EXXON') || upperText.includes('CHEVRON') ||
-        upperText.includes('BP ') || upperText.includes('MOBIL') || upperText.includes('MARATHON') ||
-        upperText.includes('VALERO') || upperText.includes('CIRCLE K') || upperText.includes('GALLONS')) {
-        category = 'fuel';
-    } else if (upperText.includes('MAINTENANCE') || upperText.includes('OIL CHANGE') ||
-               upperText.includes('TIRE') || upperText.includes('REPAIR') || upperText.includes('SERVICE')) {
-        category = 'maintenance';
-    } else if (upperText.includes('TOLL') || upperText.includes('PARKING')) {
-        category = 'tolls';
-    } else if (upperText.includes('FOOD') || upperText.includes('RESTAURANT') ||
-               upperText.includes('DINER') || upperText.includes('CAFE') || upperText.includes('MCDONALD') ||
-               upperText.includes('BURGER') || upperText.includes('SUBWAY') || upperText.includes('WENDY')) {
-        category = 'food';
-    } else if (upperText.includes('INSURANCE')) {
-        category = 'insurance';
-    } else if (upperText.includes('HOTEL') || upperText.includes('MOTEL') || upperText.includes('INN')) {
-        category = 'other';
+    // Categorize based on presence of keywords; be conservative (don't default to fuel)
+    const categoryHints = {
+        fuel: ['FUEL', 'GAS', 'DIESEL', 'GALLONS'],
+        maintenance: ['MAINTENANCE', 'OIL CHANGE', 'TIRE', 'REPAIR', 'SERVICE'],
+        tolls: ['TOLL', 'PARKING'],
+        food: ['FOOD', 'RESTAURANT', 'DINER', 'CAFE', 'MCDONALD', 'BURGER', 'SUBWAY', 'WENDY'],
+        insurance: ['INSURANCE'],
+        hotel: ['HOTEL', 'MOTEL', 'INN']
+    };
+
+    // Count hints for each category
+    const hintCounts = {};
+    for (const [cat, keywords] of Object.entries(categoryHints)) {
+        hintCounts[cat] = keywords.reduce((c, kw) => c + (upperText.includes(kw) ? 1 : 0), 0);
+    }
+
+    // Pick category with the highest hint count (if any), else leave as 'other'
+    const bestCategory = Object.entries(hintCounts).sort((a, b) => b[1] - a[1])[0];
+    if (bestCategory && bestCategory[1] > 0) {
+        // Map 'hotel' to 'other' to keep categories consistent
+        category = bestCategory[0] === 'hotel' ? 'other' : bestCategory[0];
     }
 
     console.log('Parsed Data:', { vendor, amount, date, category });
