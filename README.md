@@ -80,6 +80,26 @@ Secrets required for the workflow:
 - `FIREBASE_SERVICE_ACCOUNT`: JSON of a Firebase service account (create in Firebase Console → Project Settings → Service Accounts → Generate private key). Add the entire JSON as a GitHub secret with this name.
 - `GITHUB_TOKEN`: provided automatically by GitHub Actions.
 
-If you prefer the quick token method, create a CI token with `firebase login:ci` and store it as `FIREBASE_TOKEN` (update workflow accordingly).
+The workflow now supports the free CI token method using `FIREBASE_TOKEN`.
 
-If you'd like, I can create a PR to add the secrets (I can't add secrets from here), or I can add an alternate workflow that uses a CI token instead.
+To generate and add a token (free-tier friendly):
+
+1. Install the Firebase CLI locally if you don't have it:
+
+   ```bash
+   npm install -g firebase-tools
+   ```
+
+2. Login and generate a CI token on your machine:
+
+   ```bash
+   firebase login:ci
+   ```
+
+   Copy the token printed to your terminal.
+
+3. In GitHub go to **Settings → Secrets and variables → Actions** and add a new repository secret named `FIREBASE_TOKEN` with that token as the value.
+
+After adding `FIREBASE_TOKEN`, PRs will deploy preview channels and pushes to `main` will deploy to production automatically.
+
+If you'd like, I can add extra helpers like a PR-comment with the preview URL or a 'retry' button in the UI. I can't add repository secrets from here, so you'll need to create the `FIREBASE_TOKEN` secret yourself.
