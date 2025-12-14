@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>TruckInvoice - Quick Invoice Generator for OTR Drivers</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+    <!-- Authentication Modal -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <h2>Sign In to Sync</h2>
+            <p class="auth-subtitle">Sync your data across all your devices</p>
+
+            <div id="authTabs" class="auth-tabs">
+                <button type="button" class="auth-tab active" data-auth="signin">Sign In</button>
+                <button type="button" class="auth-tab" data-auth="signup">Sign Up</button>
+                <button type="button" class="auth-tab" data-auth="anonymous">Continue Without Account</button>
+            </div>
+
+            <!-- Sign In Form -->
+            <div id="signinForm" class="auth-form active">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="signinEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="signinPassword" placeholder="••••••••" required>
+                </div>
+                <button type="button" id="signinBtn" class="btn-auth">Sign In</button>
+            </div>
+
+            <!-- Sign Up Form -->
+            <div id="signupForm" class="auth-form">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="signupEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="signupPassword" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password:</label>
+                    <input type="password" id="signupPasswordConfirm" placeholder="••••••••" required>
+                </div>
+                <button type="button" id="signupBtn" class="btn-auth">Sign Up</button>
+            </div>
+
+            <!-- Anonymous Form -->
+            <div id="anonymousForm" class="auth-form">
+                <p class="anonymous-info">Continue without creating an account. Your data will sync across devices on this browser, but you won't be able to access it from other browsers unless you sign up later.</p>
+                <button type="button" id="anonymousBtn" class="btn-auth">Continue Anonymously</button>
+            </div>
+
+            <div id="authError" class="auth-error hidden"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Sync Status Bar -->
+        <div id="syncStatus" class="sync-status">
+            <span id="syncStatusIcon" class="sync-icon">🔄</span>
+            <span id="syncStatusText">Connecting...</span>
+            <button type="button" id="signoutBtn" class="btn-signout hidden">Sign Out</button>
+        </div>
+
+        <h1>TruckInvoice Generator</h1>
+        <p class="subtitle">Generate professional invoices in seconds</p>
+
+        <!-- Mobile Navigation Dropdown -->
+        <div class="nav-dropdown-container">
+            <select id="navDropdown" class="nav-dropdown" title="Navigate to page">
+                <option value="invoice">New Invoice</option>
+                <option value="receipt">Upload Receipt</option>
+                <option value="history">Invoice History</option>
+                <option value="expenses">Expenses</option>
+                <option value="dashboard">Dashboard</option>
+            </select>
+        </div>
+
+        <!-- Desktop Navigation Tabs -->
+        <div class="nav-tabs">
+            <button type="button" id="newInvoiceBtn" class="nav-tab active">New Invoice</button>
+            <button type="button" id="receiptUploadBtn" class="nav-tab">Upload Receipt</button>
+            <button type="button" id="historyBtn" class="nav-tab">Invoice History</button>
+            <button type="button" id="expensesBtn" class="nav-tab">Expenses</button>
+            <button type="button" id="dashboardBtn" class="nav-tab">Dashboard</button>
+        </div>
+
+        <!-- New Invoice View -->
+        <div id="invoiceFormView" class="view active">
+        <form id="invoiceForm">
+            <!-- Your Company Info (saved automatically) -->
+            <div class="section">
+                <h2>Your Company Info (Auto-saved)</h2>
+                <div class="form-group">
+                    <label>Your Company Name:</label>
+                    <input type="text" id="companyName" placeholder="ABC Transportation LLC" required>
+                </div>
+                <div class="form-group">
+                    <label>Your Address:</label>
+                    <input type="text" id="companyAddress" placeholder="123 Main St, Your City, ST 12345" required>
+                </div>
+                <div class="form-group">
+                    <label>Carrier ID:</label>
+                    <input type="text" id="carrierId" placeholder="000000" required>
+                </div>
+                <div class="form-group">
+                    <label>Your Email (for notifications):</label>
+                    <input type="email" id="userEmail" placeholder="driver@example.com" required>
+                </div>
+            </div>
+
+            <!-- Load Details (changes each time) -->
+            <div class="section">
+                <h2>Load Details</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Invoice #:</label>
+                        <input type="text" id="invoiceNumber" placeholder="001" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Invoice Date:</label>
+                        <input type="date" id="invoiceDate" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Customer's Name:</label>
+                    <div class="customer-input-wrapper">
+                        <input type="text" id="customerName" placeholder="ABC Company LLC" required>
+                        <select id="customerQuickFill" class="quick-fill-select" title="Select a repeat customer to auto-fill details">
+                            <option value="">Quick Fill...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date Delivered:</label>
+                        <input type="date" id="dateDelivered" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Load Number:</label>
+                        <input type="text" id="loadNumber" placeholder="LOAD123" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount to be Paid ($):</label>
+                    <input type="number" step="0.01" id="amount" placeholder="1000.00" required>
+                </div>
+
+                <!-- Accessories/Additional Charges -->
+                <div class="form-group">
+                    <label>Additional Charges (Optional):</label>
+                    <div id="accessoriesContainer">
+                        <!-- Accessories will be added here dynamically -->
+                    </div>
+                    <button type="button" class="btn-add-accessory" id="addAccessoryBtn">+ Add Charge (Detention, Lumper, etc.)</button>
+                </div>
+            </div>
+
+            <!-- Calculator Tabs -->
+            <div class="section calculator-section">
+                <h2>Payment Calculator (Optional)</h2>
+
+                <!-- Calculator Type Selector -->
+                <div class="calculator-tabs">
+                    <button type="button" class="calc-tab active" data-calc="miles">Miles/Rate</button>
+                    <button type="button" class="calc-tab" data-calc="product">Product Count</button>
+                </div>
+
+                <!-- Mile/Rate Calculator -->
+                <div id="milesCalculator" class="calculator-panel active">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Miles Driven:</label>
+                            <input type="number" step="0.1" id="miles" placeholder="450">
+                        </div>
+                        <div class="form-group">
+                            <label>Rate per Mile ($):</label>
+                            <input type="number" step="0.01" id="ratePerMile" placeholder="2.50">
+                        </div>
+                    </div>
+                    <div class="calculator-result">
+                        <div class="calculated-amount" id="calculatedAmount">
+                            <span class="calc-label">Calculated Amount:</span>
+                            <span class="calc-value">$0.00</span>
+                        </div>
+                        <button type="button" class="btn-use-calculated" id="useCalculated" disabled>Use This Amount</button>
+                    </div>
+                </div>
+
+                <!-- Product Count Calculator -->
+                <div id="productCalculator" class="calculator-panel">
+                    <div class="form-group">
+                        <label>Product Description:</label>
+                        <input type="text" id="productDescription" placeholder="e.g., Pallets of Lumber, Boxes of Electronics">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Piece Count:</label>
+                            <input type="number" step="1" id="pieceCount" placeholder="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Rate per Piece ($):</label>
+                            <input type="number" step="0.01" id="ratePerPiece" placeholder="5.00">
+                        </div>
+                    </div>
+                    <div class="calculator-result">
+                        <div class="calculated-amount" id="calculatedProductAmount">
+                            <span class="calc-label">Calculated Amount:</span>
+                            <span class="calc-value">$0.00</span>
+                        </div>
+                        <button type="button" class="btn-use-calculated" id="useCalculatedProduct" disabled>Use This Amount</button>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-generate">Generate Invoice PDF</button>
+        </form>
+        </div>
+
+        <!-- Receipt Upload View -->
+        <div id="receiptUploadView" class="view">
+            <form id="receiptForm" class="receipt-form">
+                <div class="section">
+                    <h2>Upload Receipt</h2>
+                    <p class="section-description">Take a photo or upload an image of your receipt to automatically extract data and populate your invoice form.</p>
+                    
+                    <div class="form-group">
+                        <label>Select Receipt Image:</label>
+                        <div class="receipt-upload-wrapper">
+                            <input type="file" id="receiptImage" accept="image/*" required>
+                            <div class="file-input-label">📷 Choose Image or Take Photo</div>
+                        </div>
+                    </div>
+
+                    <div id="receiptPreview" class="receipt-preview hidden">
+                        <img id="previewImage" alt="Receipt Preview">
+                    </div>
+
+                    <div id="ocrStatus" class="ocr-status hidden">
+                        <div class="status-spinner"></div>
+                        <p id="ocrMessage">Processing receipt with OCR...</p>
+                    </div>
+
+                    <div id="ocrResults" class="ocr-results hidden">
+                        <h3>Extracted Data (Editable):</h3>
+                        <p class="edit-hint">Review and edit the extracted data below before saving</p>
+                        <div class="extracted-data">
+                            <div class="extracted-item">
+                                <label>Vendor/Company:</label>
+                                <input type="text" id="extractedVendor">
+                            </div>
+                            <div class="extracted-item">
+                                <label>Amount:</label>
+                                <input type="number" step="0.01" id="extractedAmount">
+                            </div>
+                            <div class="extracted-item">
+                                <label>Date:</label>
+                                <input type="date" id="extractedDate">
+                            </div>
+                            <div class="extracted-item">
+                                <label>Category:</label>
+                                <select id="extractedCategory" title="Select expense category">
+                                    <option value="">Select Category...</option>
+                                    <option value="fuel">Fuel</option>
+                                    <option value="maintenance">Maintenance & Repairs</option>
+                                    <option value="tolls">Tolls & Parking</option>
+                                    <option value="food">Food & Meals</option>
+                                    <option value="insurance">Insurance</option>
+                                    <option value="permits">Permits & Licenses</option>
+                                    <option value="truck_payment">Truck Payment/Lease</option>
+                                    <option value="supplies">Supplies</option>
+                                    <option value="drivers_pay">Drivers Pay</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="button-group">
+                            <button type="button" id="addAsExpenseBtn" class="btn-generate">Add as Expense</button>
+                            <button type="button" id="useInInvoiceBtn" class="btn-secondary">Use in Invoice</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-generate hidden" id="processReceiptBtn">Process Receipt</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Invoice History View -->
+        <div id="historyView" class="view">
+            <div class="history-header-section">
+                <input type="text" id="searchHistory" placeholder="Search by invoice #, load #, or customer name..." class="search-input">
+            </div>
+            <div id="historyList" class="history-list">
+                <div class="no-history">No invoices yet. Generate your first invoice!</div>
+            </div>
+        </div>
+
+        <!-- Expenses View -->
+        <div id="expensesView" class="view">
+            <form id="expenseForm" class="expense-form">
+                <div class="section">
+                    <h2>Add Expense</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date:</label>
+                            <input type="date" id="expenseDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount ($):</label>
+                            <input type="number" step="0.01" id="expenseAmount" placeholder="50.00" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Category:</label>
+                            <select id="expenseCategory" title="Select expense category" required>
+                                <option value="">Select Category...</option>
+                                <option value="fuel">Fuel</option>
+                                <option value="maintenance">Maintenance & Repairs</option>
+                                <option value="tolls">Tolls & Parking</option>
+                                <option value="food">Food & Meals</option>
+                                <option value="insurance">Insurance</option>
+                                <option value="permits">Permits & Licenses</option>
+                                <option value="truck_payment">Truck Payment/Lease</option>
+                                <option value="supplies">Supplies</option>
+                                <option value="drivers_pay">Drivers Pay</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Vendor/Location:</label>
+                            <input type="text" id="expenseVendor" placeholder="Pilot Flying J" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (Optional):</label>
+                        <input type="text" id="expenseNotes" placeholder="Additional details...">
+                    </div>
+                    <button type="submit" class="btn-generate">Add Expense</button>
+                </div>
+            </form>
+
+            <div class="expense-history-section">
+                <div class="history-header-section">
+                    <input type="text" id="searchExpenses" placeholder="Search expenses..." class="search-input">
+                </div>
+                <div id="expensesList" class="history-list">
+                    <div class="no-history">No expenses yet. Add your first expense!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboardView" class="view">
+            <div class="dashboard-header">
+                <h2>Financial Dashboard</h2>
+                <div class="dashboard-controls">
+                    <div class="period-selector">
+                        <label>Period:</label>
+                        <select id="dashboardPeriod" title="Select period for dashboard">
+                            <option value="ytd">Year to Date</option>
+                            <option value="weekly">This Week</option>
+                            <option value="pay-period">Pay Period</option>
+                        </select>
+                    </div>
+                    <div class="year-selector">
+                        <label>Year:</label>
+                        <select id="dashboardYear" title="Select year for dashboard">
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="export-buttons">
+                        <button type="button" id="exportExpenseReport" class="btn-export">Export Expense Report</button>
+                        <button type="button" id="exportProfitLoss" class="btn-export">Export P&L Statement</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-cards">
+                <div class="dashboard-card income-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <div class="card-label">Total Income (YTD)</div>
+                        <div class="card-value" id="ytdIncome">$0.00</div>
+                    </div>
+                </div>
+                <div class="dashboard-card expense-card">
+                    <div class="card-icon">💰</div>
+                    <div class="card-content">
+                        <div class="card-label">Total Expenses (YTD)</div>
+                        <div class="card-value" id="ytdExpenses">$0.00</div>
+                    </div>
+                </div>
+                <div class="dashboard-card profit-card">
+                    <div class="card-icon">📈</div>
+                    <div class="card-content">
+                        <div class="card-label">Net Profit (YTD)</div>
+                        <div class="card-value" id="ytdProfit">$0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-breakdown">
+                <div class="section">
+                    <h3>Expense Breakdown</h3>
+                    <div id="expenseBreakdown" class="breakdown-list">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="section">
+                    <h3>Monthly Summary</h3>
+                    <div id="monthlySummary" class="monthly-summary">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <script src="firebase-config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

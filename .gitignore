@@ -4,3 +4,8 @@ create-icons.html
 node_modules/
 package-lock.json
 package.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
