@@ -1981,7 +1981,6 @@ function parseReceiptData(text) {
         category: category
     };
 }
-}
 
 // Reset receipt form
 function resetReceiptForm() {
