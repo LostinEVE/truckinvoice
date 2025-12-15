@@ -1,4 +1,4 @@
-const CACHE_NAME = 'truckinvoice-v12-ocr';
+const CACHE_NAME = 'truckinvoice-v13-ocr-navfix';
 const urlsToCache = [
   './index.html',
   './style.css',
