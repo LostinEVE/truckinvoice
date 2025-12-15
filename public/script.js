@@ -1,4 +1,4 @@
-// Initialize EmailJS
+﻿// Initialize EmailJS
 emailjs.init('flEWLVoiJ1uMBZgnW');
 
 // Import category labels from expenses module
@@ -528,9 +528,9 @@ function displayHistory(searchTerm = '') {
                     <strong>Invoice #${invoice.invoiceNumber}</strong>
                     <span class="history-date">${new Date(invoice.timestamp).toLocaleDateString()}</span>
                     <span class="payment-status ${isPaid ? 'paid' : 'unpaid'}">
-                        ${isPaid ? '✓ Paid' : 'Unpaid'}
+                        ${isPaid ? 'Γ£ô Paid' : 'Unpaid'}
                     </span>
-                    ${isOverdue ? '<span class="overdue-badge">⚠ 30+ Days Overdue</span>' : ''}
+                    ${isOverdue ? '<span class="overdue-badge">ΓÜá 30+ Days Overdue</span>' : ''}
                 </div>
                 <div class="history-amount">$${invoice.amount}</div>
             </div>
@@ -590,7 +590,7 @@ function togglePaymentStatus(id, isPaid) {
 
         // Show confirmation message
         const message = isPaid
-            ? `Invoice #${invoice.invoiceNumber} marked as PAID ✓`
+            ? `Invoice #${invoice.invoiceNumber} marked as PAID Γ£ô`
             : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
         showPaymentToast(message, isPaid);
     }
@@ -632,12 +632,12 @@ function showOverdueAlert(overdueInvoices) {
 
     alertDiv.innerHTML = `
         <div class="alert-content">
-            <span class="alert-icon">⚠</span>
+            <span class="alert-icon">ΓÜá</span>
             <div class="alert-message">
                 <strong>Payment Alert:</strong> You have ${overdueInvoices.length} invoice${overdueInvoices.length > 1 ? 's' : ''}
                 that ${overdueInvoices.length > 1 ? 'are' : 'is'} 30+ days past due (Total: $${totalOverdue.toFixed(2)})
             </div>
-            <button class="alert-close" onclick="this.parentElement.parentElement.remove()">×</button>
+            <button class="alert-close" onclick="this.parentElement.parentElement.remove()">├ù</button>
         </div>
         <div class="overdue-list">
             ${overdueInvoices.map(inv => {
@@ -1247,10 +1247,6 @@ function setupReceiptUpload() {
     const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
     const fileInputLabel = document.querySelector('.file-input-label');
 
-    if (!fileInputLabel || !receiptInput) {
-        return;
-    }
-
     // Make the file input label clickable and enable camera on mobile
     fileInputLabel.addEventListener('click', () => {
         // Check if on mobile and support camera capture
@@ -1274,150 +1270,6 @@ function setupReceiptUpload() {
             };
             reader.readAsDataURL(file);
         }
-    });
-
-    // Initialize crop overlay when image is loaded
-    previewImage.addEventListener('load', () => {
-        setTimeout(() => {
-            const previewContainer = document.getElementById('previewContainer');
-            const cropOverlay = document.getElementById('cropOverlay');
-            
-            if (!cropOverlay || !previewContainer) return;
-            
-            // Reset any previous positioning
-            cropOverlay.style.position = 'absolute';
-            cropOverlay.style.display = 'block';
-            
-            // Get the actual displayed image dimensions
-            const imgWidth = previewImage.offsetWidth;
-            const imgHeight = previewImage.offsetHeight;
-            
-            // Set default crop to center 80% of image
-            const cropWidth = imgWidth * 0.8;
-            const cropHeight = imgHeight * 0.8;
-            const cropLeft = imgWidth * 0.1;
-            const cropTop = imgHeight * 0.1;
-            
-            cropOverlay.style.left = cropLeft + 'px';
-            cropOverlay.style.top = cropTop + 'px';
-            cropOverlay.style.width = cropWidth + 'px';
-            cropOverlay.style.height = cropHeight + 'px';
-            
-            // Add resize handles
-            cropOverlay.innerHTML = `
-                <div class="resize-handle handle-nw"></div>
-                <div class="resize-handle handle-n"></div>
-                <div class="resize-handle handle-ne"></div>
-                <div class="resize-handle handle-e"></div>
-                <div class="resize-handle handle-se"></div>
-                <div class="resize-handle handle-s"></div>
-                <div class="resize-handle handle-sw"></div>
-                <div class="resize-handle handle-w"></div>
-            `;
-            
-            // Store crop data
-            window.cropRect = {
-                left: cropLeft,
-                top: cropTop,
-                width: cropWidth,
-                height: cropHeight,
-                imageWidth: imgWidth,
-                imageHeight: imgHeight
-            };
-            
-            console.log('Crop initialized:', window.cropRect);
-        }, 100); // Small delay to ensure image is fully rendered
-    });
-
-    // Simple, reliable crop functionality
-    let isDragging = false;
-    let isResizing = false;
-    let resizeHandle = '';
-    let startX, startY, startLeft, startTop, startWidth, startHeight;
-
-    document.addEventListener('mousedown', (e) => {
-        const cropOverlay = document.getElementById('cropOverlay');
-        if (!cropOverlay || !window.cropRect) return;
-        
-        if (e.target.classList.contains('resize-handle')) {
-            // Resizing
-            isResizing = true;
-            resizeHandle = e.target.className.split(' ').find(c => c.startsWith('handle-')).replace('handle-', '');
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = window.cropRect.left;
-            startTop = window.cropRect.top;
-            startWidth = window.cropRect.width;
-            startHeight = window.cropRect.height;
-            e.preventDefault();
-        } else if (e.target === cropOverlay) {
-            // Dragging
-            isDragging = true;
-            const rect = cropOverlay.getBoundingClientRect();
-            const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            startLeft = window.cropRect.left;
-            startTop = window.cropRect.top;
-            e.preventDefault();
-        }
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!window.cropRect) return;
-        
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        const cropOverlay = document.getElementById('cropOverlay');
-        
-        if (isDragging) {
-            const newLeft = Math.max(0, Math.min(window.cropRect.imageWidth - window.cropRect.width, startLeft + deltaX));
-            const newTop = Math.max(0, Math.min(window.cropRect.imageHeight - window.cropRect.height, startTop + deltaY));
-            
-            cropOverlay.style.left = newLeft + 'px';
-            cropOverlay.style.top = newTop + 'px';
-            window.cropRect.left = newLeft;
-            window.cropRect.top = newTop;
-            
-        } else if (isResizing) {
-            let newLeft = startLeft;
-            let newTop = startTop;
-            let newWidth = startWidth;
-            let newHeight = startHeight;
-            
-            const minSize = 20;
-            
-            if (resizeHandle.includes('e')) {
-                newWidth = Math.max(minSize, Math.min(window.cropRect.imageWidth - startLeft, startWidth + deltaX));
-            }
-            if (resizeHandle.includes('s')) {
-                newHeight = Math.max(minSize, Math.min(window.cropRect.imageHeight - startTop, startHeight + deltaY));
-            }
-            if (resizeHandle.includes('w')) {
-                newWidth = Math.max(minSize, startWidth - deltaX);
-                newLeft = Math.max(0, startLeft + startWidth - newWidth);
-            }
-            if (resizeHandle.includes('n')) {
-                newHeight = Math.max(minSize, startHeight - deltaY);
-                newTop = Math.max(0, startTop + startHeight - newHeight);
-            }
-            
-            cropOverlay.style.left = newLeft + 'px';
-            cropOverlay.style.top = newTop + 'px';
-            cropOverlay.style.width = newWidth + 'px';
-            cropOverlay.style.height = newHeight + 'px';
-            
-            window.cropRect.left = newLeft;
-            window.cropRect.top = newTop;
-            window.cropRect.width = newWidth;
-            window.cropRect.height = newHeight;
-        }
-    });
-
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        isResizing = false;
-        resizeHandle = '';
     });
 
     // Handle receipt processing
@@ -1490,17 +1342,6 @@ async function processReceiptWithOCR(file) {
     ocrMessage.textContent = 'Processing receipt with OCR... This may take a moment.';
 
     try {
-        // Apply crop if crop area is defined
-        let processedFile = file;
-        if (window.cropRect) {
-            try {
-                processedFile = await applyCrop(file);
-                console.log('Applied crop to image before OCR');
-            } catch (cropError) {
-                console.warn('Crop failed, using original image:', cropError);
-            }
-        }
-
         // Read file as data URL
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -1539,242 +1380,20 @@ async function processReceiptWithOCR(file) {
                 ocrMessage.textContent = 'Error processing image. Please try again with a clearer photo.';
             }
         };
-        reader.readAsDataURL(processedFile);
+        reader.readAsDataURL(file);
     } catch (error) {
         console.error('File reading error:', error);
         alert('Error reading file. Please try again.');
     }
 }
 
-// Apply crop to an image file based on current crop selection
-async function applyCrop(file) {
-    return new Promise((resolve, reject) => {
-        if (!window.cropRect) {
-            console.log('No crop area defined, using original image');
-            resolve(file);
-            return;
-        }
-
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                // Calculate scale factors from displayed image to natural image size
-                const scaleX = img.naturalWidth / window.cropRect.imageWidth;
-                const scaleY = img.naturalHeight / window.cropRect.imageHeight;
-                
-                // Convert crop coordinates to natural image coordinates
-                const cropX = Math.round(window.cropRect.left * scaleX);
-                const cropY = Math.round(window.cropRect.top * scaleY);
-                const cropW = Math.round(window.cropRect.width * scaleX);
-                const cropH = Math.round(window.cropRect.height * scaleY);
-                
-                console.log('Applying crop:', {
-                    original: { w: img.naturalWidth, h: img.naturalHeight },
-                    displayed: { w: window.cropRect.imageWidth, h: window.cropRect.imageHeight },
-                    crop: { x: cropX, y: cropY, w: cropW, h: cropH },
-                    scale: { x: scaleX, y: scaleY }
-                });
-                
-                // Set canvas to cropped size
-                canvas.width = cropW;
-                canvas.height = cropH;
-                
-                // Draw cropped portion
-                ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-                
-                // Convert to blob and create new file
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        const croppedFile = new File([blob], 'cropped_' + file.name, { type: 'image/jpeg' });
-                        console.log('Created cropped file:', croppedFile.size, 'bytes');
-                        resolve(croppedFile);
-                    } else {
-                        reject(new Error('Failed to create cropped image'));
-                    }
-                }, 'image/jpeg', 0.9);
-            } catch (err) {
-                console.error('Crop failed:', err);
-                reject(err);
-            } finally {
-                URL.revokeObjectURL(url);
-            }
-        };
-        
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Failed to load image'));
-        };
-        
-        img.src = url;
-    });
-}
-
 // Parse receipt data from OCR text
 function parseReceiptData(text) {
-    console.log('=== PARSING OCR TEXT ===');
-    console.log('Raw OCR text:', text);
-    
     // Default values
     let vendor = 'Unknown Vendor';
     let amount = '0.00';
     let date = new Date().toISOString().split('T')[0];
     let category = 'other';
-
-    if (!text || text.trim().length === 0) {
-        console.log('No text to parse');
-        return { vendor, amount, date, category };
-    }
-
-    // Clean and split text into lines
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    console.log('Lines:', lines);
-
-    // Extract vendor - look for business names in first few lines
-    const businessKeywords = [
-        'PILOT', 'FLYING J', 'LOVES', "LOVE'S", 'TA', 'PETRO', 'SHELL', 'EXXON', 
-        'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON', 'VALERO', 'CIRCLE K',
-        'WALMART', 'TARGET', 'MCDONALD', 'SUBWAY', 'KFC', 'BURGER KING'
-    ];
-
-    // Look for vendor in first 5 lines
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-        const line = lines[i].toUpperCase();
-        
-        // Check for known businesses
-        for (const business of businessKeywords) {
-            if (line.includes(business)) {
-                vendor = lines[i]; // Use original case
-                console.log('Found vendor:', vendor);
-                break;
-            }
-        }
-        
-        if (vendor !== 'Unknown Vendor') break;
-        
-        // If no known business, look for lines with letters (not just numbers/symbols)
-        if (lines[i].length > 3 && /[A-Za-z]{3,}/.test(lines[i]) && 
-            !/^\d/.test(lines[i]) && !/(RECEIPT|TOTAL|DATE|TIME)/i.test(lines[i])) {
-            vendor = lines[i];
-            console.log('Vendor from text line:', vendor);
-            break;
-        }
-    }
-
-    // Extract amount - look for dollar amounts with better patterns
-    const amountPatterns = [
-        /(?:TOTAL|AMOUNT|SALE|BALANCE|DUE)[\s:]*\$?\s*([\d,]+\.\d{2})/gi,
-        /\$\s*([\d,]+\.\d{2})/g,
-        /(?:^|\s)([\d,]+\.\d{2})\s*$/gm
-    ];
-
-    const foundAmounts = [];
-    
-    for (const pattern of amountPatterns) {
-        let match;
-        while ((match = pattern.exec(text)) !== null) {
-            const amt = parseFloat(match[1].replace(/,/g, ''));
-            if (amt > 0.01 && amt < 10000) { // Reasonable amount range
-                foundAmounts.push({ amount: amt, context: match[0] });
-                console.log('Found amount:', amt, 'in context:', match[0]);
-            }
-        }
-    }
-
-    // Use the largest labeled amount, or largest amount if no labels
-    if (foundAmounts.length > 0) {
-        const labeledAmount = foundAmounts.find(a => /total|amount|sale|balance|due/i.test(a.context));
-        if (labeledAmount) {
-            amount = labeledAmount.amount.toFixed(2);
-            console.log('Using labeled amount:', amount);
-        } else {
-            amount = Math.max(...foundAmounts.map(a => a.amount)).toFixed(2);
-            console.log('Using largest amount:', amount);
-        }
-    }
-
-    // Extract date
-    const datePatterns = [
-        /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/,
-        /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
-        /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+(\d{1,2}),?\s+(\d{4})/i
-    ];
-
-    for (const pattern of datePatterns) {
-        const dateMatch = pattern.exec(text);
-        if (dateMatch) {
-            try {
-                if (dateMatch[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)) {
-                    // Handle month name format
-                    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                    const monthAbbr = dateMatch[1].toUpperCase().substring(0, 3);
-                    const month = String(monthNames.indexOf(monthAbbr) + 1).padStart(2, '0');
-                    const day = dateMatch[2].padStart(2, '0');
-                    const year = dateMatch[3];
-                    date = `${year}-${month}-${day}`;
-                    console.log('Found date (month name):', date);
-                } else if (dateMatch[1].length === 4) {
-                    // YYYY/MM/DD format
-                    const year = dateMatch[1];
-                    const month = dateMatch[2].padStart(2, '0');
-                    const day = dateMatch[3].padStart(2, '0');
-                    date = `${year}-${month}-${day}`;
-                    console.log('Found date (YYYY-MM-DD):', date);
-                } else {
-                    // MM/DD/YYYY format
-                    let month = dateMatch[1].padStart(2, '0');
-                    let day = dateMatch[2].padStart(2, '0');
-                    let year = dateMatch[3];
-                    
-                    if (year.length === 2) {
-                        year = '20' + year;
-                    }
-                    
-                    // If month > 12, assume DD/MM format
-                    if (parseInt(month) > 12) {
-                        [month, day] = [day, month];
-                    }
-                    
-                    date = `${year}-${month}-${day}`;
-                    console.log('Found date (MM-DD-YYYY):', date);
-                }
-                break;
-            } catch (e) {
-                console.log('Date parsing error:', e);
-            }
-        }
-    }
-
-    // Determine category based on vendor and keywords
-    const upperText = text.toUpperCase();
-    const upperVendor = vendor.toUpperCase();
-    
-    if (upperText.includes('FUEL') || upperText.includes('GAS') || upperText.includes('DIESEL') ||
-        upperVendor.includes('PILOT') || upperVendor.includes('FLYING J') || upperVendor.includes('LOVES') ||
-        upperVendor.includes('SHELL') || upperVendor.includes('EXXON') || upperVendor.includes('CHEVRON') ||
-        upperVendor.includes('BP') || upperVendor.includes('MOBIL')) {
-        category = 'fuel';
-    } else if (upperText.includes('FOOD') || upperText.includes('RESTAURANT') ||
-               upperVendor.includes('MCDONALD') || upperVendor.includes('SUBWAY') ||
-               upperVendor.includes('BURGER') || upperVendor.includes('KFC')) {
-        category = 'food';
-    } else if (upperText.includes('MAINTENANCE') || upperText.includes('REPAIR') || 
-               upperText.includes('OIL') || upperText.includes('TIRE')) {
-        category = 'maintenance';
-    } else if (upperText.includes('TOLL') || upperText.includes('PARKING')) {
-        category = 'tolls';
-    }
-
-    const result = { vendor, amount, date, category };
-    console.log('=== PARSE RESULT ===');
-    console.log(result);
-    
-    return result;
-}
 
     // Convert text to uppercase for easier matching
     const upperText = text.toUpperCase();
@@ -1940,6 +1559,7 @@ function parseReceiptData(text) {
         date: date,
         category: category
     };
+}
 
 // Reset receipt form
 function resetReceiptForm() {
