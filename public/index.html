@@ -249,19 +249,23 @@
                     <div id="receiptPreview" class="receipt-preview hidden">
                         <div id="previewContainer">
                             <img id="previewImage" alt="Receipt Preview">
-                            <div id="cropOverlay"></div>
+                            <div id="cropOverlay">
+                                <div class="resize-handle handle-nw"></div>
+                                <div class="resize-handle handle-n"></div>
+                                <div class="resize-handle handle-ne"></div>
+                                <div class="resize-handle handle-e"></div>
+                                <div class="resize-handle handle-se"></div>
+                                <div class="resize-handle handle-s"></div>
+                                <div class="resize-handle handle-sw"></div>
+                                <div class="resize-handle handle-w"></div>
+                            </div>
                         </div>
                         <div class="preview-controls">
                             <label class="preview-toggle"><input type="checkbox" id="showPreprocessed"> Show preprocessed image</label>
                             <label class="preview-toggle"><input type="checkbox" id="doNotSavePhotos"> Do not save receipt photos (save parsed data only)</label>
                             <label class="preview-toggle"><input type="checkbox" id="enhancedOcrToggle"> Enhanced OCR (contrast + sharpen)</label>
                         </div>
-                        <div class="crop-controls">
-                            <button type="button" id="startCropBtn" class="btn-secondary">Start Crop</button>
-                            <button type="button" id="applyCropBtn" class="btn-secondary" disabled>Apply Crop</button>
-                            <button type="button" id="applyCropProcessBtn" class="btn-generate" disabled>Apply & Process</button>
-                            <button type="button" id="resetCropBtn" class="btn-secondary" disabled>Reset Crop</button>
-                        </div>
+                        <!-- Simplified: adjustable crop box directly on preview (no extra buttons) -->
                         <p class="edit-hint">Tip: draw a rectangle over the receipt to remove surrounding objects.</p>
                     </div>
 

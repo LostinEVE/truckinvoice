@@ -35,16 +35,17 @@ if ('serviceWorker' in navigator) {
 
 // Load saved company info on page load
 window.addEventListener('DOMContentLoaded', () => {
-    loadCompanyInfo();
-    setTodayAsDefault();
-    setupInvoiceForm();
-    setupNavigation();
-    setupReceiptUpload();
-    setupQuickFill();
-    setupCalculator();
-    setupExpenses();
-    setupDashboard();
-    setupAccessories();
+    try { loadCompanyInfo(); } catch (e) { console.error('loadCompanyInfo failed', e); }
+    try { setTodayAsDefault(); } catch (e) { console.error('setTodayAsDefault failed', e); }
+    try { setupInvoiceForm(); } catch (e) { console.error('setupInvoiceForm failed', e); }
+    // Ensure navigation is always initialized
+    try { setupNavigation(); } catch (e) { console.error('setupNavigation failed', e); }
+    try { setupReceiptUpload(); } catch (e) { console.error('setupReceiptUpload failed', e); }
+    try { setupQuickFill(); } catch (e) { console.error('setupQuickFill failed', e); }
+    try { setupCalculator(); } catch (e) { console.error('setupCalculator failed', e); }
+    try { setupExpenses(); } catch (e) { console.error('setupExpenses failed', e); }
+    try { setupDashboard(); } catch (e) { console.error('setupDashboard failed', e); }
+    try { setupAccessories(); } catch (e) { console.error('setupAccessories failed', e); }
 });
 
 // (invoice form, company info, history, quick fill now in invoices.js)
@@ -81,31 +82,32 @@ function setupNavigation() {
         activeBtn.classList.add('active');
     }
 
+    function handleNavigate(value) {
+        switch(value) {
+            case 'invoice':
+                switchView(invoiceFormView, newInvoiceBtn);
+                populateCustomerList();
+                break;
+            case 'receipt':
+                switchView(receiptUploadView, receiptUploadBtn);
+                break;
+            case 'history':
+                switchView(historyView, historyBtn);
+                displayHistory();
+                break;
+            case 'expenses':
+                switchView(expensesView, expensesBtn);
+                displayExpenses();
+                break;
+            case 'dashboard':
+                switchView(dashboardView, dashboardBtn);
+                updateDashboard();
+                break;
+        }
+    }
+
     if (navDropdown) {
-        navDropdown.addEventListener('change', (e) => {
-            const value = e.target.value;
-            switch(value) {
-                case 'invoice':
-                    switchView(invoiceFormView, newInvoiceBtn);
-                    populateCustomerList();
-                    break;
-                case 'receipt':
-                    switchView(receiptUploadView, receiptUploadBtn);
-                    break;
-                case 'history':
-                    switchView(historyView, historyBtn);
-                    displayHistory();
-                    break;
-                case 'expenses':
-                    switchView(expensesView, expensesBtn);
-                    displayExpenses();
-                    break;
-                case 'dashboard':
-                    switchView(dashboardView, dashboardBtn);
-                    updateDashboard();
-                    break;
-            }
-        });
+        ['change','input'].forEach(evt => navDropdown.addEventListener(evt, (e) => handleNavigate(e.target.value)));
     }
 
     newInvoiceBtn.addEventListener('click', () => {
@@ -139,6 +141,233 @@ function setupNavigation() {
 
     searchInput.addEventListener('input', (e) => {
         displayHistory(e.target.value);
+    });
+}
+
+// Receipt upload + OCR + adjustable crop overlay
+function setupReceiptUpload() {
+    const fileInput = document.getElementById('receiptImage');
+    const preview = document.getElementById('receiptPreview');
+    const previewImg = document.getElementById('previewImage');
+    const overlay = document.getElementById('cropOverlay');
+    const showPre = document.getElementById('showPreprocessed');
+    const enhancedToggle = document.getElementById('enhancedOcrToggle');
+    const doNotSavePhotos = document.getElementById('doNotSavePhotos');
+
+    if (!fileInput || !preview || !previewImg || !overlay) return;
+
+    let crop = { x: 0, y: 0, w: 0, h: 0 };
+    let dragging = false;
+    let resizing = null; // 'nw','n','ne','e','se','s','sw','w'
+    let start = { x: 0, y: 0 };
+    let startRect = { x: 0, y: 0, w: 0, h: 0 };
+
+    function showOverlay() {
+        overlay.style.display = 'block';
+        overlay.style.left = crop.x + 'px';
+        overlay.style.top = crop.y + 'px';
+        overlay.style.width = crop.w + 'px';
+        overlay.style.height = crop.h + 'px';
+    }
+
+    function ensureDefaultCrop() {
+        const r = previewImg.getBoundingClientRect();
+        const container = previewImg.parentElement.getBoundingClientRect();
+        const pad = 20;
+        crop.x = pad;
+        crop.y = pad;
+        crop.w = Math.max(50, r.width - pad * 2);
+        crop.h = Math.max(50, r.height - pad * 2);
+        showOverlay();
+    }
+
+    function onMouseDown(e) {
+        const target = e.target;
+        const rect = overlay.getBoundingClientRect();
+        start = { x: e.clientX, y: e.clientY };
+        startRect = { x: crop.x, y: crop.y, w: crop.w, h: crop.h };
+        if (target.classList.contains('resize-handle')) {
+            if (target.classList.contains('handle-nw')) resizing = 'nw';
+            else if (target.classList.contains('handle-n')) resizing = 'n';
+            else if (target.classList.contains('handle-ne')) resizing = 'ne';
+            else if (target.classList.contains('handle-e')) resizing = 'e';
+            else if (target.classList.contains('handle-se')) resizing = 'se';
+            else if (target.classList.contains('handle-s')) resizing = 's';
+            else if (target.classList.contains('handle-sw')) resizing = 'sw';
+            else if (target.classList.contains('handle-w')) resizing = 'w';
+        } else {
+            dragging = true;
+        }
+        e.preventDefault();
+    }
+
+    function onMouseMove(e) {
+        if (!dragging && !resizing) return;
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        if (dragging) {
+            crop.x = Math.max(0, startRect.x + dx);
+            crop.y = Math.max(0, startRect.y + dy);
+        } else if (resizing) {
+            const minSize = 30;
+            let x = startRect.x, y = startRect.y, w = startRect.w, h = startRect.h;
+            if (resizing.includes('w')) { x = startRect.x + dx; w = startRect.w - dx; }
+            if (resizing.includes('e')) { w = startRect.w + dx; }
+            if (resizing.includes('n')) { y = startRect.y + dy; h = startRect.h - dy; }
+            if (resizing.includes('s')) { h = startRect.h + dy; }
+            crop.x = Math.max(0, x);
+            crop.y = Math.max(0, y);
+            crop.w = Math.max(minSize, w);
+            crop.h = Math.max(minSize, h);
+        }
+        showOverlay();
+    }
+
+    function onMouseUp() {
+        dragging = false;
+        resizing = null;
+    }
+
+    overlay.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        previewImg.src = url;
+        preview.classList.remove('hidden');
+        await new Promise(res => previewImg.onload = res);
+        ensureDefaultCrop();
+        await processReceiptWithOCR(file);
+    });
+
+    async function processReceiptWithOCR(file) {
+        const ocrStatus = document.getElementById('ocrStatus');
+        const ocrMessage = document.getElementById('ocrMessage');
+        const ocrResults = document.getElementById('ocrResults');
+        const rawTextEl = document.getElementById('rawOcrText');
+        const amountEl = document.getElementById('extractedAmount');
+        const vendorEl = document.getElementById('extractedVendor');
+        const dateEl = document.getElementById('extractedDate');
+
+        ocrStatus.classList.remove('hidden');
+        ocrResults.classList.add('hidden');
+        ocrMessage.textContent = 'Processing receipt with OCR...';
+
+        // Prepare cropped image via canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const scaleX = previewImg.naturalWidth / previewImg.clientWidth;
+        const scaleY = previewImg.naturalHeight / previewImg.clientHeight;
+        const sx = Math.round(crop.x * scaleX);
+        const sy = Math.round(crop.y * scaleY);
+        const sw = Math.round(crop.w * scaleX);
+        const sh = Math.round(crop.h * scaleY);
+        canvas.width = sw; canvas.height = sh;
+        const imgEl = previewImg;
+        await new Promise(res => { if (imgEl.complete) res(); else imgEl.onload = res; });
+        ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        // Optional preprocessing
+        if (enhancedToggle && enhancedToggle.checked) {
+            const imgData = ctx.getImageData(0, 0, sw, sh);
+            // simple contrast bump
+            const data = imgData.data;
+            const factor = 1.2;
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = Math.min(255, data[i] * factor);
+                data[i+1] = Math.min(255, data[i+1] * factor);
+                data[i+2] = Math.min(255, data[i+2] * factor);
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+        const formData = new FormData();
+        formData.append('language', OCR_CONFIG.language || 'eng');
+        formData.append('isOverlayRequired', 'false');
+        formData.append('file', blob, 'crop.jpg');
+
+        try {
+            const resp = await fetch(OCR_CONFIG.apiUrl, {
+                method: 'POST',
+                headers: { 'apikey': OCR_CONFIG.apiKey },
+                body: formData
+            });
+            const json = await resp.json();
+            const parsedText = json?.ParsedResults?.[0]?.ParsedText || '';
+            rawTextEl.value = parsedText;
+            const amtMatch = parsedText.match(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})/);
+            amountEl.value = amtMatch ? amtMatch[1].replace(/,/g,'') : '';
+            const dateMatch = parsedText.match(/(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})|(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
+            if (dateMatch) {
+                const d = new Date(dateMatch[0].replace(/\//g,'-'));
+                if (!isNaN(d)) dateEl.valueAsDate = d;
+            }
+            const firstLine = parsedText.split('\n').find(l => l.trim().length > 2) || '';
+            vendorEl.value = firstLine.trim();
+
+            ocrStatus.classList.add('hidden');
+            ocrResults.classList.remove('hidden');
+        } catch (err) {
+            ocrMessage.textContent = 'OCR failed. Please try again.';
+            console.error(err);
+        }
+    }
+
+    // Action buttons
+    const copyBtn = document.getElementById('copyRawBtn');
+    const saveRawExpenseBtn = document.getElementById('saveRawExpenseBtn');
+    const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
+    const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
+    const retryAmountBtn = document.getElementById('retryAmountBtn');
+    const retryEnhancedBtn = document.getElementById('retryEnhancedBtn');
+
+    copyBtn?.addEventListener('click', () => {
+        const text = document.getElementById('rawOcrText').value;
+        navigator.clipboard.writeText(text);
+    });
+
+    saveRawExpenseBtn?.addEventListener('click', () => {
+        const amount = parseFloat(document.getElementById('extractedAmount').value || '0');
+        const date = document.getElementById('extractedDate').value || '';
+        const category = document.getElementById('extractedCategory').value || '';
+        const vendor = document.getElementById('extractedVendor').value || '';
+        const notes = 'Saved from raw OCR text';
+        if (!amount || !date || !category || !vendor) return alert('Please fill vendor, amount, date, and category');
+        saveExpense({ date, amount, category, vendor, notes });
+        alert('Saved as expense');
+    });
+
+    addAsExpenseBtn?.addEventListener('click', () => {
+        const amount = parseFloat(document.getElementById('extractedAmount').value || '0');
+        const date = document.getElementById('extractedDate').value || '';
+        const category = document.getElementById('extractedCategory').value || '';
+        const vendor = document.getElementById('extractedVendor').value || '';
+        const notes = 'From receipt OCR';
+        if (!amount || !date || !category || !vendor) return alert('Please fill vendor, amount, date, and category');
+        saveExpense({ date, amount, category, vendor, notes });
+        alert('Expense added');
+    });
+
+    useInInvoiceBtn?.addEventListener('click', () => {
+        const amount = document.getElementById('extractedAmount').value || '';
+        document.getElementById('amount').value = amount;
+        alert('Amount copied to invoice form');
+    });
+
+    retryAmountBtn?.addEventListener('click', () => {
+        const text = document.getElementById('rawOcrText').value || '';
+        const m = text.match(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})/);
+        document.getElementById('extractedAmount').value = m ? m[1].replace(/,/g,'') : '';
+    });
+
+    retryEnhancedBtn?.addEventListener('click', () => {
+        enhancedToggle.checked = true;
+        const file = fileInput.files?.[0];
+        if (file) processReceiptWithOCR(file);
     });
 }
 
@@ -483,13 +712,12 @@ function setupReceiptUpload() {
     // CROPPING UI
     const previewContainer = document.getElementById('previewContainer');
     const cropOverlay = document.getElementById('cropOverlay');
-    const startCropBtn = document.getElementById('startCropBtn');
-    const applyCropBtn = document.getElementById('applyCropBtn');
-    const applyCropProcessBtn = document.getElementById('applyCropProcessBtn');
-    const resetCropBtn = document.getElementById('resetCropBtn');
 
-    let cropping = false;
-    let cropStart = null;
+    // Simple adjustable crop box: drag to move, handles to resize
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let isResizing = false;
+    let resizeDir = null; // 'nw','ne','sw','se','n','s','e','w'
     let cropRect = null;
 
     function toImageCoords(clientX, clientY) {
@@ -499,57 +727,81 @@ function setupReceiptUpload() {
         return { x, y, imgRect };
     }
 
-    startCropBtn.addEventListener('click', () => {
-        cropping = true;
-        cropOverlay.style.display = 'none';
-        cropOverlay.style.left = '0px';
-        cropOverlay.style.top = '0px';
-        cropOverlay.style.width = '0px';
-        cropOverlay.style.height = '0px';
-        cropStart = null;
-        previewContainer.style.cursor = 'crosshair';
-        // enable reset button when cropping started
-        if (resetCropBtn) resetCropBtn.disabled = false;
-    });
-
-    previewContainer.addEventListener('mousedown', (e) => {
-        if (!cropping) return;
-        const { x, y } = toImageCoords(e.clientX, e.clientY);
-        cropStart = { x, y };
-        cropOverlay.style.left = `${x}px`;
-        cropOverlay.style.top = `${y}px`;
-        cropOverlay.style.width = '0px';
-        cropOverlay.style.height = '0px';
+    // Initialize overlay when preview shows
+    function ensureDefaultCrop() {
+        const imgRect = previewImage.getBoundingClientRect();
+        // default to central box covering ~80% width/height
+        const left = imgRect.width * 0.1;
+        const top = imgRect.height * 0.1;
+        const width = imgRect.width * 0.8;
+        const height = imgRect.height * 0.8;
         cropOverlay.style.display = 'block';
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (!cropping || !cropStart) return;
-        const { x, y } = toImageCoords(e.clientX, e.clientY);
-        const left = Math.min(cropStart.x, x);
-        const top = Math.min(cropStart.y, y);
-        const width = Math.abs(cropStart.x - x);
-        const height = Math.abs(cropStart.y - y);
         cropOverlay.style.left = `${left}px`;
         cropOverlay.style.top = `${top}px`;
         cropOverlay.style.width = `${width}px`;
         cropOverlay.style.height = `${height}px`;
+        cropRect = { left, top, width, height, imgRect };
+        addOverlayHandles();
+    }
+
+    // Drag to move
+    cropOverlay.addEventListener('mousedown', (e) => {
+        const target = e.target;
+        if (target.classList.contains('resize-handle')) {
+            isResizing = true;
+            resizeDir = target.dataset.dir;
+        } else {
+            isDragging = true;
+            const rect = cropOverlay.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+        }
+        e.preventDefault();
     });
 
-    window.addEventListener('mouseup', (e) => {
-        if (!cropping || !cropStart) return;
+    window.addEventListener('mousemove', (e) => {
+        if (!cropRect) return;
         const { x, y, imgRect } = toImageCoords(e.clientX, e.clientY);
-        const left = Math.min(cropStart.x, x);
-        const top = Math.min(cropStart.y, y);
-        const width = Math.abs(cropStart.x - x);
-        const height = Math.abs(cropStart.y - y);
-        // store normalized crop in displayed pixels
+        let left = cropRect.left;
+        let top = cropRect.top;
+        let width = cropRect.width;
+        let height = cropRect.height;
+        if (isDragging) {
+            left = Math.max(0, Math.min(imgRect.width - width, e.clientX - imgRect.left - dragOffset.x));
+            top = Math.max(0, Math.min(imgRect.height - height, e.clientY - imgRect.top - dragOffset.y));
+        } else if (isResizing && resizeDir) {
+            const right = left + width;
+            const bottom = top + height;
+            if (resizeDir.includes('e')) {
+                width = Math.max(20, Math.min(imgRect.width - left, x - left));
+            }
+            if (resizeDir.includes('s')) {
+                height = Math.max(20, Math.min(imgRect.height - top, y - top));
+            }
+            if (resizeDir.includes('w')) {
+                const newLeft = Math.max(0, Math.min(right - 20, x));
+                width = right - newLeft;
+                left = newLeft;
+            }
+            if (resizeDir.includes('n')) {
+                const newTop = Math.max(0, Math.min(bottom - 20, y));
+                height = bottom - newTop;
+                top = newTop;
+            }
+        } else {
+            return;
+        }
+        cropOverlay.style.left = `${left}px`;
+        cropOverlay.style.top = `${top}px`;
+        cropOverlay.style.width = `${width}px`;
+        cropOverlay.style.height = `${height}px`;
         cropRect = { left, top, width, height, imgRect };
-        cropping = false;
-        cropStart = null;
-        previewContainer.style.cursor = 'default';
-        if (applyCropBtn) applyCropBtn.disabled = false;
-        if (applyCropProcessBtn) applyCropProcessBtn.disabled = false;
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+        isResizing = false;
+        resizeDir = null;
     });
 
     function applyCrop() {
@@ -582,37 +834,20 @@ function setupReceiptUpload() {
         return dataURL;
     }
 
-    if (applyCropBtn) {
-        applyCropBtn.addEventListener('click', () => {
-            applyCrop();
-            // enable reset
-            if (resetCropBtn) resetCropBtn.disabled = false;
-        });
-    }
+    // Ensure overlay appears when image is ready
+    previewImage.addEventListener('load', () => {
+        ensureDefaultCrop();
+    });
 
-    if (applyCropProcessBtn) {
-        applyCropProcessBtn.addEventListener('click', async () => {
-            const dataURL = applyCrop();
-            if (!dataURL) { alert('No crop selected'); return; }
-            // convert to File and process
-            const blob = await (await fetch(dataURL)).blob();
-            const file = new File([blob], 'cropped.jpg', { type: blob.type });
-            // call OCR directly
-            await processReceiptWithOCR(file);
-        });
-    }
-
-    if (resetCropBtn) {
-        resetCropBtn.addEventListener('click', () => {
-            // restore original preview
-            if (window._originalDataURL) previewImage.src = window._originalDataURL;
-            window._croppedDataURL = null;
-            window._lastProcessed = null;
-            cropOverlay.style.display = 'none';
-            cropRect = null;
-            if (applyCropBtn) applyCropBtn.disabled = true;
-            if (applyCropProcessBtn) applyCropProcessBtn.disabled = true;
-            resetCropBtn.disabled = true;
+    // Add resize handles to overlay
+    function addOverlayHandles() {
+        const dirs = ['nw','n','ne','e','se','s','sw','w'];
+        cropOverlay.innerHTML = '';
+        dirs.forEach(dir => {
+            const h = document.createElement('div');
+            h.className = 'resize-handle handle-' + dir;
+            h.dataset.dir = dir;
+            cropOverlay.appendChild(h);
         });
     }
 }
@@ -644,6 +879,15 @@ async function processReceiptWithOCR(file, options = {}) {
         formData.append('detectOrientation', OCR_CONFIG.detectOrientation);
         formData.append('scale', OCR_CONFIG.scale);
         formData.append('OCREngine', '2'); // Engine 2 is better for receipts
+
+        // If a crop is set, apply crop before sending
+        if (cropRect && previewImage && window._originalDataURL) {
+            const dataURL = applyCrop();
+            if (dataURL) {
+                const blob = await (await fetch(dataURL)).blob();
+                file = new File([blob], 'cropped.jpg', { type: blob.type });
+            }
+        }
 
         // Call OCR.space API
         const response = await fetch(OCR_CONFIG.apiUrl, {
