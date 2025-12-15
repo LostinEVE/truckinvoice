@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated",
+    "firebase": "^12.6.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.33.0"
+  },
+  "scripts": {
+    "test:ocr": "node tests/run-ocr-test.js"
+  }
+}
