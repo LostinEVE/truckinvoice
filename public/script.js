@@ -1189,3 +1189,5 @@ if (typeof window.navigateTo === 'function') {
     console.error('window.navigateTo is NOT available!');
 }
 });
+
+// Force redeploy - ensuring complete file deployment
