@@ -6,7 +6,6 @@
     max-height: 75vh;
     overflow: auto;
     -ms-overflow-style: none; /* IE/Edge */
-    scrollbar-width: thin;    /* Firefox */
     touch-action: pan-y;      /* allow vertical scroll on mobile */
 }
 

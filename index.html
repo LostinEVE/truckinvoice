@@ -166,7 +166,7 @@
                     <div id="accessoriesContainer">
                         <!-- Accessories will be added here dynamically -->
                     </div>
-                    <button type="button" class="btn-add-accessory" id="addAccessoryBtn">+ Add Charge (Detention, Lumper, etc.)</button>
+                    <button type="button" class="btn-add-accessory" id="addAccessoryBtnOld">+ Add Charge (Detention, Lumper, etc.)</button>
                 </div>
             </div>
 
@@ -225,6 +225,14 @@
                         <button type="button" class="btn-use-calculated" id="useCalculatedProduct" disabled>Use This Amount</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Additional Charges/Accessories -->
+            <div class="section">
+                <h2>Additional Charges (Optional)</h2>
+                <p class="section-description">Add any additional fees such as detention, lumper fees, or extra stops</p>
+                <button type="button" id="addAccessoryBtn" class="btn-secondary">+ Add Charge</button>
+                <div id="accessoriesContainer2" class="accessories-container"></div>
             </div>
 
             <button type="submit" class="btn-generate">Generate Invoice PDF</button>
