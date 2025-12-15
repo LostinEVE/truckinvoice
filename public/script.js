@@ -38,13 +38,7 @@ function showView(view) {
     Object.entries(viewMap).forEach(([key, id]) => {
         const el = document.getElementById(id);
         if (el) {
-            if (key === view) {
-                el.classList.add('active');
-                el.style.display = 'block';
-            } else {
-                el.classList.remove('active');
-                el.style.display = 'none';
-            }
+            el.classList.toggle('active', key === view);
         }
     });
 
@@ -60,11 +54,7 @@ function showView(view) {
     Object.entries(tabMap).forEach(([key, id]) => {
         const btn = document.getElementById(id);
         if (btn) {
-            if (key === view) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
+            btn.classList.toggle('active', key === view);
         }
     });
 
@@ -97,9 +87,13 @@ function setupNavigation() {
     };
     
     if (dropdown) {
-        dropdown.addEventListener('change', (e) => {
-            handleViewChange(e.target.value || 'invoice');
-        });
+        // Listen to both 'change' and 'input' for better mobile support
+        const handler = (e) => {
+            const view = e.target.value || 'invoice';
+            handleViewChange(view);
+        };
+        dropdown.addEventListener('change', handler);
+        dropdown.addEventListener('input', handler);
     }
 
     const bindings = [
