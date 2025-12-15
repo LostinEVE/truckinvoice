@@ -13,15 +13,22 @@ const categoryLabels = {
 };
 
 export function setupExpenses() {
+    console.log('setupExpenses called');
     const expenseForm = document.getElementById('expenseForm');
     const expenseDate = document.getElementById('expenseDate');
     const searchExpenses = document.getElementById('searchExpenses');
 
-    if (!expenseForm || !expenseDate || !searchExpenses) return;
+    console.log('Expense form elements:', { expenseForm: !!expenseForm, expenseDate: !!expenseDate, searchExpenses: !!searchExpenses });
+    if (!expenseForm || !expenseDate || !searchExpenses) {
+        console.error('Missing expense form elements');
+        return;
+    }
 
     expenseDate.value = new Date().toISOString().split('T')[0];
 
+    console.log('Adding expense form submit listener');
     expenseForm.addEventListener('submit', (e) => {
+        console.log('Expense form submitted');
         e.preventDefault();
 
         const expense = {

@@ -161,6 +161,7 @@ async function compressImageFile(file, { maxSizeKB = MAX_OCR_FILE_KB, maxDim = M
 
 // Initialize receipt uploader
 function setupReceiptUpload() {
+    console.log('setupReceiptUpload called');
     const receiptInput = document.getElementById('receiptImage');
     const receiptForm = document.getElementById('receiptForm');
     const previewImage = document.getElementById('previewImage');
@@ -177,8 +178,22 @@ function setupReceiptUpload() {
     const enhancedOcrToggle = document.getElementById('enhancedOcrToggle');
     const retryEnhancedBtn = document.getElementById('retryEnhancedBtn');
 
+    console.log('Receipt upload elements:', {
+        receiptInput: !!receiptInput,
+        receiptForm: !!receiptForm,
+        fileInputLabel: !!fileInputLabel,
+        processBtn: !!processBtn
+    });
+
+    if (!receiptInput || !receiptForm || !fileInputLabel) {
+        console.error('Missing receipt upload elements');
+        return;
+    }
+
     // Make the file input label clickable and enable camera on mobile
+    console.log('Adding file input label click listener');
     fileInputLabel.addEventListener('click', () => {
+        console.log('File input label clicked');
         // Check if on mobile and support camera capture
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
@@ -189,7 +204,9 @@ function setupReceiptUpload() {
     });
 
     // Handle file selection and preview
+    console.log('Adding file input change listener');
     receiptInput.addEventListener('change', (e) => {
+        console.log('File selected:', e.target.files[0]);
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -230,7 +247,9 @@ function setupReceiptUpload() {
     });
 
     // Prefer cropped image when submitting the receipt form
+    console.log('Adding receipt form submit listener');
     receiptForm.addEventListener('submit', async (e) => {
+        console.log('Receipt form submitted');
         e.preventDefault();
         let fileToProcess = null;
         if (window._croppedDataURL) {
@@ -241,6 +260,8 @@ function setupReceiptUpload() {
         } else if (window._originalFile) {
             fileToProcess = window._originalFile;
         }
+
+        console.log('File to process:', fileToProcess);
 
         if (fileToProcess) {
             await processReceiptWithOCR(fileToProcess, { enhanced: enhancedOcrToggle && enhancedOcrToggle.checked });

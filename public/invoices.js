@@ -43,10 +43,17 @@ export function formatDate(dateString) {
 
 // Invoice form wiring
 export function setupInvoiceForm() {
+    console.log('setupInvoiceForm called');
     const invoiceForm = document.getElementById('invoiceForm');
-    if (!invoiceForm) return;
+    console.log('Invoice form element:', !!invoiceForm);
+    if (!invoiceForm) {
+        console.error('Invoice form not found');
+        return;
+    }
 
+    console.log('Adding invoice form submit listener');
     invoiceForm.addEventListener('submit', (e) => {
+        console.log('Invoice form submitted');
         e.preventDefault();
 
         saveCompanyInfo();
