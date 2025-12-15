@@ -26,8 +26,6 @@ const MAX_OCR_DIM = 1600;    // constrain max width/height to reduce size
 
 // Navigation between views (tabs + dropdown)
 function showView(view) {
-    console.log('showView called with:', view);
-    
     const viewMap = {
         invoice: 'invoiceFormView',
         receipt: 'receiptUploadView',
@@ -40,11 +38,7 @@ function showView(view) {
     Object.entries(viewMap).forEach(([key, id]) => {
         const el = document.getElementById(id);
         if (el) {
-            const shouldBeActive = key === view;
-            el.classList.toggle('active', shouldBeActive);
-            console.log(`View ${id}: active=${shouldBeActive}, classList=${el.className}`);
-        } else {
-            console.warn(`View element not found: ${id}`);
+            el.classList.toggle('active', key === view);
         }
     });
 
@@ -72,39 +66,34 @@ function showView(view) {
 }
 
 function setupNavigation() {
-    console.log('setupNavigation called');
     const dropdown = document.getElementById('navDropdown');
-    console.log('dropdown element:', dropdown);
     
     const handleViewChange = (view) => {
-        console.log('handleViewChange:', view);
         showView(view);
-        // Trigger view-specific functions when switching
-        try {
-            if (view === 'invoice') {
-                populateCustomerList();
-            } else if (view === 'history') {
-                displayHistory();
-            } else if (view === 'expenses') {
-                displayExpenses();
-            } else if (view === 'dashboard') {
-                updateDashboard();
+        // Refresh specific view data when switching
+        setTimeout(() => {
+            try {
+                if (view === 'history') {
+                    displayHistory();
+                } else if (view === 'expenses') {
+                    displayExpenses();
+                } else if (view === 'dashboard') {
+                    updateDashboard();
+                }
+            } catch (e) {
+                console.error(`Error refreshing view ${view}:`, e);
             }
-        } catch (e) {
-            console.error(`Error updating view ${view}:`, e);
-        }
+        }, 100);
     };
     
     if (dropdown) {
         // Listen to both 'change' and 'input' for better mobile support
         const handler = (e) => {
-            console.log('dropdown event fired:', e.type, 'value:', e.target.value);
             const view = e.target.value || 'invoice';
             handleViewChange(view);
         };
         dropdown.addEventListener('change', handler);
         dropdown.addEventListener('input', handler);
-        console.log('dropdown listeners attached');
     }
 
     const bindings = [
@@ -117,10 +106,8 @@ function setupNavigation() {
 
     bindings.forEach(({ id, view }) => {
         const el = document.getElementById(id);
-        console.log(`binding button ${id}:`, el);
         if (el) {
             el.addEventListener('click', (e) => {
-                console.log(`Button clicked: ${id} -> ${view}`);
                 e.preventDefault();
                 handleViewChange(view);
             });
@@ -128,7 +115,6 @@ function setupNavigation() {
     });
 
     // Show invoice view by default
-    console.log('Setting initial view to invoice');
     showView('invoice');
 }
 
