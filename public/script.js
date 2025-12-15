@@ -1148,12 +1148,22 @@ Object.assign(window, {
 });
 
 // DEBUG: Log which functions are exposed on window
-console.log('Functions exposed to window:', {
+console.log('script.js: Functions exposed to window:', {
     deleteInvoice: typeof window.deleteInvoice,
     deleteExpense: typeof window.deleteExpense,
     togglePaymentStatus: typeof window.togglePaymentStatus,
     regenerateInvoice: typeof window.regenerateInvoice,
     displayHistory: typeof window.displayHistory,
     displayExpenses: typeof window.displayExpenses,
-    updateDashboard: typeof window.updateDashboard
+    updateDashboard: typeof window.updateDashboard,
+    navigateTo: typeof window.navigateTo,
+    showView: typeof window.showView
 });
+
+// Test navigation function availability
+console.log('Testing window.navigateTo function...');
+if (typeof window.navigateTo === 'function') {
+    console.log('window.navigateTo is available!');
+} else {
+    console.error('window.navigateTo is NOT available!');
+}

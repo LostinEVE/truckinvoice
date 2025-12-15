@@ -1,7 +1,11 @@
 // Global navigation function for onclick handlers
 // This file is NOT a module, so it has access to global scope
 
+console.log('nav.js loading...');
+
 function showView(view) {
+    console.log('showView called with:', view);
+    
     const viewMap = {
         invoice: 'invoiceFormView',
         receipt: 'receiptUploadView',
@@ -13,6 +17,7 @@ function showView(view) {
     // Hide all views, show selected
     Object.entries(viewMap).forEach(([key, id]) => {
         const el = document.getElementById(id);
+        console.log(`Element ${id}:`, el ? 'found' : 'NOT FOUND');
         if (el) {
             el.classList.toggle('active', key === view);
         }
@@ -29,6 +34,7 @@ function showView(view) {
     // Update button states
     Object.entries(tabMap).forEach(([key, id]) => {
         const btn = document.getElementById(id);
+        console.log(`Button ${id}:`, btn ? 'found' : 'NOT FOUND');
         if (btn) {
             btn.classList.toggle('active', key === view);
         }
@@ -36,6 +42,7 @@ function showView(view) {
 
     // Sync dropdown
     const dropdown = document.getElementById('navDropdown');
+    console.log('Dropdown:', dropdown ? 'found' : 'NOT FOUND');
     if (dropdown && dropdown.value !== view) {
         dropdown.value = view;
     }
@@ -44,7 +51,17 @@ function showView(view) {
 // Global navigation function for onclick handlers
 window.navigateTo = function(view) {
     console.log('navigateTo called:', view);
-    showView(view);
+    
+    // Ensure DOM is ready before calling showView
+    if (document.readyState === 'loading') {
+        console.log('DOM not ready, waiting...');
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM ready, calling showView');
+            showView(view);
+        });
+    } else {
+        showView(view);
+    }
     
     // Refresh specific view data when switching
     setTimeout(() => {
@@ -68,3 +85,5 @@ window.navigateTo = function(view) {
 
 // Make showView available on window for module script
 window.showView = showView;
+
+console.log('nav.js loaded. window.navigateTo:', typeof window.navigateTo);
