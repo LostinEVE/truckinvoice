@@ -29,14 +29,23 @@ function showView(view) {
     const viewMap = {
         invoice: 'invoiceFormView',
         receipt: 'receiptUploadView',
-        history: 'invoiceHistoryView',
+        history: 'historyView',
         expenses: 'expensesView',
         dashboard: 'dashboardView'
     };
 
+    // Hide all views, show selected
     Object.entries(viewMap).forEach(([key, id]) => {
         const el = document.getElementById(id);
-        if (el) el.classList.toggle('active', key === view);
+        if (el) {
+            if (key === view) {
+                el.classList.add('active');
+                el.style.display = 'block';
+            } else {
+                el.classList.remove('active');
+                el.style.display = 'none';
+            }
+        }
     });
 
     const tabMap = {
@@ -47,23 +56,50 @@ function showView(view) {
         dashboard: 'dashboardBtn'
     };
 
+    // Update button states
     Object.entries(tabMap).forEach(([key, id]) => {
         const btn = document.getElementById(id);
-        if (btn) btn.classList.toggle('active', key === view);
+        if (btn) {
+            if (key === view) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
     });
 
+    // Sync dropdown
     const dropdown = document.getElementById('navDropdown');
     if (dropdown && dropdown.value !== view) {
         dropdown.value = view;
     }
-} // <-- Add this closing brace to end setupReceiptUpload function
+}
 
 function setupNavigation() {
     const dropdown = document.getElementById('navDropdown');
+    
+    const handleViewChange = (view) => {
+        showView(view);
+        // Trigger view-specific functions when switching
+        try {
+            if (view === 'invoice') {
+                populateCustomerList();
+            } else if (view === 'history') {
+                displayHistory();
+            } else if (view === 'expenses') {
+                displayExpenses();
+            } else if (view === 'dashboard') {
+                updateDashboard();
+            }
+        } catch (e) {
+            console.error(`Error updating view ${view}:`, e);
+        }
+    };
+    
     if (dropdown) {
-        const handler = (e) => showView(e.target.value || 'invoice');
-        dropdown.addEventListener('change', handler);
-        dropdown.addEventListener('input', handler);
+        dropdown.addEventListener('change', (e) => {
+            handleViewChange(e.target.value || 'invoice');
+        });
     }
 
     const bindings = [
@@ -76,9 +112,15 @@ function setupNavigation() {
 
     bindings.forEach(({ id, view }) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('click', () => showView(view));
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                handleViewChange(view);
+            });
+        }
     });
 
+    // Show invoice view by default
     showView('invoice');
 }
 
