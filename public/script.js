@@ -25,69 +25,15 @@ const MAX_OCR_FILE_KB = 900; // keep under 1 MB API limit
 const MAX_OCR_DIM = 1600;    // constrain max width/height to reduce size
 
 // Navigation between views (tabs + dropdown)
-function showView(view) {
-    const viewMap = {
-        invoice: 'invoiceFormView',
-        receipt: 'receiptUploadView',
-        history: 'historyView',
-        expenses: 'expensesView',
-        dashboard: 'dashboardView'
-    };
-
-    // Hide all views, show selected
-    Object.entries(viewMap).forEach(([key, id]) => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.classList.toggle('active', key === view);
-        }
-    });
-
-    const tabMap = {
-        invoice: 'newInvoiceBtn',
-        receipt: 'receiptUploadBtn',
-        history: 'historyBtn',
-        expenses: 'expensesBtn',
-        dashboard: 'dashboardBtn'
-    };
-
-    // Update button states
-    Object.entries(tabMap).forEach(([key, id]) => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.classList.toggle('active', key === view);
-        }
-    });
-
-    // Sync dropdown
-    const dropdown = document.getElementById('navDropdown');
-    if (dropdown && dropdown.value !== view) {
-        dropdown.value = view;
-    }
-}
-
-// Global navigation function for onclick handlers
-window.navigateTo = function(view) {
-    showView(view);
-    // Refresh specific view data when switching
-    setTimeout(() => {
-        try {
-            if (view === 'history') {
-                displayHistory();
-            } else if (view === 'expenses') {
-                displayExpenses();
-            } else if (view === 'dashboard') {
-                updateDashboard();
-            }
-        } catch (e) {
-            console.error(`Error refreshing view ${view}:`, e);
-        }
-    }, 100);
-};
+// showView function is defined in nav.js (global script)
+// window.navigateTo is defined in nav.js (global script)
 
 function setupNavigation() {
-    // Navigation is now handled via onclick in HTML
-    // Just initialize the default view
-    showView('invoice');
+    // Navigation is now handled via onclick in HTML and nav.js global script
+    // Call showView to initialize
+    if (typeof showView === 'function') {
+        showView('invoice');
+    }
 }
 
 // Calculator panels (miles vs product count)
