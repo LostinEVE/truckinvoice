@@ -1,4 +1,4 @@
-const CACHE_NAME = 'truckinvoice-v19-expense-items';
+const CACHE_NAME = 'truckinvoice-v20-code-cleanup';
 const urlsToCache = [
   './index.html',
   './style.css',

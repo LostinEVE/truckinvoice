@@ -1,4 +1,7 @@
 {
+  "name": "truckinvoice",
+  "version": "2.0.0",
+  "description": "Professional invoice generator for OTR truck drivers",
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
     "firebase": "^12.6.0"

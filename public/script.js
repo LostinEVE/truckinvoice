@@ -1,6 +1,11 @@
 // Initialize EmailJS
 emailjs.init('flEWLVoiJ1uMBZgnW');
 
+// Import category labels from expenses module
+import('./expenses.js').then(module => {
+    window.categoryLabels = module.categoryLabels;
+});
+
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -883,7 +888,8 @@ function displayExpenses(searchTerm = '') {
         return;
     }
 
-    const categoryLabels = {
+    // Use imported category labels
+    const categoryLabels = window.categoryLabels || {
         fuel: 'Fuel',
         maintenance: 'Maintenance & Repairs',
         tolls: 'Tolls & Parking',
@@ -892,6 +898,7 @@ function displayExpenses(searchTerm = '') {
         permits: 'Permits & Licenses',
         truck_payment: 'Truck Payment/Lease',
         supplies: 'Supplies',
+        drivers_pay: 'Drivers Pay',
         other: 'Other'
     };
 
@@ -1078,7 +1085,8 @@ function getDateRange(period, year) {
 function displayExpenseBreakdown(expenses) {
     const breakdownDiv = document.getElementById('expenseBreakdown');
 
-    const categoryLabels = {
+    // Use imported category labels
+    const categoryLabels = window.categoryLabels || {
         fuel: 'Fuel',
         maintenance: 'Maintenance & Repairs',
         tolls: 'Tolls & Parking',
@@ -1087,6 +1095,7 @@ function displayExpenseBreakdown(expenses) {
         permits: 'Permits & Licenses',
         truck_payment: 'Truck Payment/Lease',
         supplies: 'Supplies',
+        drivers_pay: 'Drivers Pay',
         other: 'Other'
     };
 
@@ -1592,8 +1601,8 @@ function exportExpenseReport() {
     doc.text(`Period: ${periodLabel} (${selectedYear})`, 105, 38, { align: 'center' });
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 46, { align: 'center' });
 
-    // Category labels
-    const categoryLabels = {
+    // Use imported category labels
+    const categoryLabels = window.categoryLabels || {
         fuel: 'Fuel',
         maintenance: 'Maintenance & Repairs',
         tolls: 'Tolls & Parking',
@@ -1607,13 +1616,13 @@ function exportExpenseReport() {
     };
 
     // Group by category
-    const breakdown = {};
+    const expenseBreakdown = {};
     filteredExpenses.forEach(exp => {
-        if (!breakdown[exp.category]) {
-            breakdown[exp.category] = { total: 0, items: [] };
+        if (!expenseBreakdown[exp.category]) {
+            expenseBreakdown[exp.category] = { total: 0, items: [] };
         }
-        breakdown[exp.category].total += parseFloat(exp.amount);
-        breakdown[exp.category].items.push(exp);
+        expenseBreakdown[exp.category].total += parseFloat(exp.amount);
+        expenseBreakdown[exp.category].items.push(exp);
     });
 
     let y = 60;
@@ -1626,7 +1635,7 @@ function exportExpenseReport() {
     y += 10;
 
     doc.setFontSize(10);
-    Object.entries(breakdown).sort((a, b) => b[1].total - a[1].total).forEach(([category, data]) => {
+    Object.entries(expenseBreakdown).sort((a, b) => b[1].total - a[1].total).forEach(([category, data]) => {
         if (y > pageHeight - 20) {
             doc.addPage();
             y = 20;
@@ -1746,8 +1755,8 @@ function exportProfitLossStatement() {
     doc.text('EXPENSES', 20, y);
     y += 10;
 
-    // Category labels
-    const categoryLabels = {
+    // Use imported category labels
+    const categoryLabels = window.categoryLabels || {
         fuel: 'Fuel',
         maintenance: 'Maintenance & Repairs',
         tolls: 'Tolls & Parking',

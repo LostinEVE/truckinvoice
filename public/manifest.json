@@ -1,6 +1,7 @@
 {
   "name": "TruckInvoice Generator",
   "short_name": "TruckInvoice",
+  "version": "2.0.0",
   "description": "Generate professional trucking invoices quickly and easily.",
   "start_url": "./index.html",
   "display": "standalone",
