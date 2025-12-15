@@ -1766,163 +1766,213 @@ function parseReceiptData(text) {
     let date = new Date().toISOString().split('T')[0];
     let category = 'other';
 
-    // Convert text to uppercase for easier matching
-    const upperText = text.toUpperCase();
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    // Clean and normalize text
+    const cleanText = text.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim();
+    const upperText = cleanText.toUpperCase();
+    const lines = cleanText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
-    console.log('OCR Extracted Text:', text);
+    console.log('===== OCR PARSING DEBUG =====');
+    console.log('Raw OCR Text:', text);
+    console.log('Cleaned Text:', cleanText);
     console.log('Lines:', lines);
 
-    // Extract vendor name - look for common fuel stations and businesses
-    const fuelStations = ['PILOT', 'FLYING J', 'LOVES', "LOVE'S", 'TA', 'TRAVEL CENTER', 'PETRO',
-                          'SHELL', 'EXXON', 'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON',
-                          'VALERO', 'CIRCLE K', 'WAWA', 'SHEETZ', 'CASEY'];
+    // Enhanced vendor extraction with more businesses
+    const knownBusinesses = {
+        'fuel': ['PILOT', 'FLYING J', 'LOVES', "LOVE'S", 'TA', 'TRAVEL CENTER', 'PETRO',
+                 'SHELL', 'EXXON', 'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON',
+                 'VALERO', 'CIRCLE K', 'WAWA', 'SHEETZ', 'CASEY', 'MAVERIK', 'KWIK TRIP',
+                 'PHILLIPS 66', 'SINCLAIR', 'ARCO', 'TEXACO', 'GETTY', 'SUNOCO'],
+        'food': ['MCDONALD', 'SUBWAY', 'BURGER KING', 'WENDY', 'TACO BELL', 'KFC',
+                 'PIZZA HUT', 'DOMINO', 'DAIRY QUEEN', 'ARBYS', 'SONIC', 'IHOP',
+                 'DENNY', 'WAFFLE HOUSE', 'CRACKER BARREL'],
+        'maintenance': ['TIRE', 'AUTO', 'SERVICE', 'REPAIR', 'LUBE', 'QUICK CHANGE'],
+        'other': ['WALMART', 'TARGET', 'AMAZON', 'COSTCO', 'SAM\'S CLUB']
+    };
 
-    // Try to find vendor in first few lines
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-        const line = lines[i];
-        const upperLine = line.toUpperCase();
+    // Find vendor and category from business names
+    for (const [cat, businesses] of Object.entries(knownBusinesses)) {
+        for (const business of businesses) {
+            if (upperText.includes(business)) {
+                // Look for the business name in the first few lines for better vendor extraction
+                for (let i = 0; i < Math.min(5, lines.length); i++) {
+                    if (lines[i].toUpperCase().includes(business)) {
+                        vendor = lines[i];
+                        category = cat;
+                        console.log(`Found vendor: ${vendor}, category: ${category}`);
+                        break;
+                    }
+                }
+                if (vendor !== 'Unknown Vendor') break;
+            }
+        }
+        if (vendor !== 'Unknown Vendor') break;
+    }
 
-        // Check for fuel stations
-        for (const station of fuelStations) {
-            if (upperLine.includes(station)) {
+    // If no known business found, use heuristics for vendor
+    if (vendor === 'Unknown Vendor') {
+        for (let i = 0; i < Math.min(5, lines.length); i++) {
+            const line = lines[i].trim();
+            // Skip obvious non-vendor lines
+            if (line.length > 3 && line.length < 60 && 
+                !line.match(/^\d+$/) && 
+                !line.toUpperCase().includes('RECEIPT') &&
+                !line.toUpperCase().includes('PHONE') &&
+                !line.match(/^\d{3}-\d{3}-\d{4}/) &&
+                !line.match(/\d+\s+(ST|AVE|RD|BLVD|DR)/i)) {
                 vendor = line;
-                category = 'fuel';
+                console.log(`Heuristic vendor: ${vendor}`);
                 break;
             }
         }
-
-        // If vendor found, break
-        if (vendor !== 'Unknown Vendor') break;
-
-        // Otherwise, use first non-empty line that's not a number or address
-        if (line.length > 3 && line.length < 50 && !/^\d+$/.test(line) && !upperLine.includes('RECEIPT')) {
-            vendor = line;
-        }
     }
 
-    // Look for dollar amounts - improved pattern matching
-    const amountPatterns = [
-        /(?:TOTAL|AMOUNT|SALE|PURCHASE|DUE)[\s:]*\$?\s*(\d+\.\d{2})/i,  // "TOTAL: $50.00" or "TOTAL 50.00"
-        /\$\s*(\d+\.\d{2})\s*(?:TOTAL|AMOUNT|SALE|PURCHASE)/i,           // "$50.00 TOTAL"
-        /(?:^|\s)\$\s*(\d+\.\d{2})(?:\s|$)/gm,                           // Standalone "$50.00"
-        /(?:^|\s)(\d+\.\d{2})\s*(?:USD|US)?(?:\s|$)/gm                   // "50.00" or "50.00 USD"
+    // Enhanced amount extraction with better patterns
+    const amounts = [];
+    
+    // Priority patterns (more specific)
+    const priorityPatterns = [
+        /(?:TOTAL|AMOUNT DUE|GRAND TOTAL|FINAL TOTAL)[\s:]*\$?\s*(\d{1,5}\.\d{2})/gi,
+        /(?:SALE|PURCHASE)[\s:]*\$?\s*(\d{1,5}\.\d{2})/gi,
+        /FUEL\s+(?:SALE|TOTAL)[\s:]*\$?\s*(\d{1,5}\.\d{2})/gi
     ];
 
-    const amounts = [];
-
-    // Try specific patterns first (TOTAL, AMOUNT, etc.)
-    for (let i = 0; i < 2; i++) {
-        const match = amountPatterns[i].exec(text);
-        if (match) {
-            amounts.push(parseFloat(match[1]));
-        }
-    }
-
-    // If no specific amount found, get all dollar amounts
-    if (amounts.length === 0) {
+    // Try priority patterns first
+    for (const pattern of priorityPatterns) {
         let match;
-        const generalPattern = /\$?\s*(\d{1,5}\.\d{2})/g;
-        while ((match = generalPattern.exec(text)) !== null) {
+        while ((match = pattern.exec(cleanText)) !== null) {
             const val = parseFloat(match[1]);
-            // Filter out unrealistic amounts (likely dates or other numbers)
             if (val > 0.50 && val < 10000) {
-                amounts.push(val);
+                amounts.push({ value: val, priority: 3, source: match[0] });
+                console.log(`Priority amount found: $${val} from "${match[0]}"`);
             }
         }
     }
 
-    // For fuel receipts, look for "FUEL SALE" or "TOTAL SALE" amounts specifically
-    if (category === 'fuel') {
-        const fuelPattern = /(?:FUEL\s+SALE|TOTAL\s+SALE|PRODUCT\s+TOTAL)[\s:]*\$?\s*(\d+\.\d{2})/i;
-        const fuelMatch = fuelPattern.exec(text);
-        if (fuelMatch) {
-            amount = parseFloat(fuelMatch[1]).toFixed(2);
-        } else if (amounts.length > 0) {
-            // Use the largest amount for fuel (usually the total)
-            amount = Math.max(...amounts).toFixed(2);
-        }
-    } else {
-        // For other receipts, prefer amounts labeled as "TOTAL" or use the largest
-        if (amounts.length > 0) {
-            amount = Math.max(...amounts).toFixed(2);
+    // If no priority amounts, look for any dollar amounts
+    if (amounts.length === 0) {
+        const generalPatterns = [
+            /\$\s*(\d{1,5}\.\d{2})/g,
+            /(\d{1,5}\.\d{2})\s*USD/gi,
+            /^(\d{1,5}\.\d{2})$/gm
+        ];
+
+        for (const pattern of generalPatterns) {
+            let match;
+            while ((match = pattern.exec(cleanText)) !== null) {
+                const val = parseFloat(match[1]);
+                if (val > 0.50 && val < 10000) {
+                    amounts.push({ value: val, priority: 1, source: match[0] });
+                    console.log(`General amount found: $${val} from "${match[0]}"`);
+                }
+            }
         }
     }
 
-    // Try to extract date (multiple formats)
+    // Select best amount
+    if (amounts.length > 0) {
+        // Sort by priority, then by value (largest first)
+        amounts.sort((a, b) => b.priority - a.priority || b.value - a.value);
+        amount = amounts[0].value.toFixed(2);
+        console.log(`Selected amount: $${amount} from ${amounts.length} candidates`);
+    }
+
+    // Enhanced date extraction with more flexible patterns
     const datePatterns = [
-        /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/,           // MM/DD/YYYY or DD/MM/YYYY
-        /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,             // YYYY/MM/DD
-        /(\d{2})(\d{2})(\d{2,4})/,                           // MMDDYY or MMDDYYYY
-        /(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+(\d{1,2}),?\s+(\d{4})/i  // "JAN 15, 2024"
+        // Standard formats
+        /(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/g,
+        /(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/g,
+        // Month name formats
+        /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+(\d{1,2}),?\s+(\d{2,4})/gi,
+        // Date with time
+        /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\s+\d{1,2}:\d{2}/g,
+        // Compact formats
+        /(\d{2})(\d{2})(\d{2,4})/g
     ];
 
+    let foundDate = false;
     for (const pattern of datePatterns) {
-        const dateMatch = pattern.exec(text);
-        if (dateMatch) {
+        let match;
+        while ((match = pattern.exec(cleanText)) !== null && !foundDate) {
             try {
-                if (dateMatch[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)) {
+                console.log(`Date match found: ${match[0]}`);
+                
+                if (match[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)) {
                     // Month name format
                     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                    const monthMatch = dateMatch[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)[0].toUpperCase().substring(0, 3);
-                    const month = String(monthNames.indexOf(monthMatch) + 1).padStart(2, '0');
-                    const day = dateMatch[1].padStart(2, '0');
-                    const year = dateMatch[2];
-                    date = `${year}-${month}-${day}`;
-                } else if (dateMatch[1].length === 4) {
-                    // YYYY/MM/DD format
-                    const year = dateMatch[1];
-                    const month = dateMatch[2].padStart(2, '0');
-                    const day = dateMatch[3].padStart(2, '0');
-                    date = `${year}-${month}-${day}`;
-                } else {
-                    // MM/DD/YYYY or similar
-                    let month = dateMatch[1].padStart(2, '0');
-                    let day = dateMatch[2].padStart(2, '0');
-                    let year = dateMatch[3];
-
-                    if (year.length === 2) {
-                        year = '20' + year;
+                    const monthStr = match[1].toUpperCase().substring(0, 3);
+                    const monthIndex = monthNames.indexOf(monthStr);
+                    if (monthIndex !== -1) {
+                        const month = String(monthIndex + 1).padStart(2, '0');
+                        const day = match[2].padStart(2, '0');
+                        let year = match[3];
+                        if (year.length === 2) year = '20' + year;
+                        date = `${year}-${month}-${day}`;
+                        foundDate = true;
+                        console.log(`Parsed month-name date: ${date}`);
                     }
+                } else if (match[1].length === 4) {
+                    // YYYY/MM/DD format
+                    const year = match[1];
+                    const month = match[2].padStart(2, '0');
+                    const day = match[3].padStart(2, '0');
+                    date = `${year}-${month}-${day}`;
+                    foundDate = true;
+                    console.log(`Parsed YYYY-MM-DD date: ${date}`);
+                } else {
+                    // MM/DD/YYYY or DD/MM/YYYY format
+                    let month = match[1].padStart(2, '0');
+                    let day = match[2].padStart(2, '0');
+                    let year = match[3];
 
-                    // If month > 12, swap month and day (DD/MM format)
-                    if (parseInt(month) > 12) {
+                    if (year.length === 2) year = '20' + year;
+
+                    // If month > 12, assume DD/MM format and swap
+                    if (parseInt(month) > 12 && parseInt(day) <= 12) {
                         [month, day] = [day, month];
                     }
 
-                    date = `${year}-${month}-${day}`;
+                    // Validate date parts
+                    if (parseInt(month) <= 12 && parseInt(day) <= 31) {
+                        date = `${year}-${month}-${day}`;
+                        foundDate = true;
+                        console.log(`Parsed MM/DD/YYYY date: ${date}`);
+                    }
                 }
-                break;
             } catch (e) {
                 console.log('Date parsing error:', e);
             }
         }
     }
 
-    // Enhanced categorization based on keywords
-    if (upperText.includes('FUEL') || upperText.includes('GAS') || upperText.includes('DIESEL') ||
-        upperText.includes('SHELL') || upperText.includes('PILOT') || upperText.includes('FLYING J') ||
-        upperText.includes('LOVE') || upperText.includes('SPEEDWAY') || upperText.includes('TA ') ||
-        upperText.includes('PETRO') || upperText.includes('EXXON') || upperText.includes('CHEVRON') ||
-        upperText.includes('BP ') || upperText.includes('MOBIL') || upperText.includes('MARATHON') ||
-        upperText.includes('VALERO') || upperText.includes('CIRCLE K') || upperText.includes('GALLONS')) {
-        category = 'fuel';
-    } else if (upperText.includes('MAINTENANCE') || upperText.includes('OIL CHANGE') ||
-               upperText.includes('TIRE') || upperText.includes('REPAIR') || upperText.includes('SERVICE')) {
-        category = 'maintenance';
-    } else if (upperText.includes('TOLL') || upperText.includes('PARKING')) {
-        category = 'tolls';
-    } else if (upperText.includes('FOOD') || upperText.includes('RESTAURANT') ||
-               upperText.includes('DINER') || upperText.includes('CAFE') || upperText.includes('MCDONALD') ||
-               upperText.includes('BURGER') || upperText.includes('SUBWAY') || upperText.includes('WENDY')) {
-        category = 'food';
-    } else if (upperText.includes('INSURANCE')) {
-        category = 'insurance';
-    } else if (upperText.includes('HOTEL') || upperText.includes('MOTEL') || upperText.includes('INN')) {
-        category = 'other';
+    // Improved category detection with more keywords
+    const categoryKeywords = {
+        'fuel': ['FUEL', 'GAS', 'DIESEL', 'GALLONS', 'PETROLEUM', 'STATION', 'PUMP'],
+        'food': ['RESTAURANT', 'DINER', 'CAFE', 'FOOD', 'COFFEE', 'PIZZA', 'BURGER', 'SANDWICH'],
+        'maintenance': ['MAINTENANCE', 'REPAIR', 'SERVICE', 'OIL CHANGE', 'TIRE', 'AUTO', 'LUBE', 'MECHANIC'],
+        'tolls': ['TOLL', 'TURNPIKE', 'HIGHWAY', 'BRIDGE', 'TUNNEL'],
+        'parking': ['PARKING', 'METER', 'LOT', 'GARAGE'],
+        'insurance': ['INSURANCE', 'POLICY', 'PREMIUM'],
+        'permits': ['PERMIT', 'LICENSE', 'REGISTRATION', 'TAG', 'DECAL']
+    };
+
+    // Check for category keywords (override business-based category if more specific)
+    for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+        for (const keyword of keywords) {
+            if (upperText.includes(keyword)) {
+                category = cat;
+                console.log(`Category set to ${cat} based on keyword: ${keyword}`);
+                break;
+            }
+        }
+        if (category !== 'other' && category !== 'fuel') break; // Keep fuel category unless overridden
     }
 
-    console.log('Parsed Data:', { vendor, amount, date, category });
+    console.log('===== FINAL PARSED DATA =====');
+    console.log('Vendor:', vendor);
+    console.log('Amount:', amount);
+    console.log('Date:', date);
+    console.log('Category:', category);
+    console.log('=============================');
 
     return {
         vendor: vendor,
@@ -1930,6 +1980,7 @@ function parseReceiptData(text) {
         date: date,
         category: category
     };
+}
 }
 
 // Reset receipt form
