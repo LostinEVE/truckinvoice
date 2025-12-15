@@ -1,3 +1,5 @@
+console.log('script.js is loading...');
+
 // Initialize EmailJS
 emailjs.init('flEWLVoiJ1uMBZgnW');
 
@@ -21,15 +23,46 @@ if ('serviceWorker' in navigator) {
 
 // Load saved company info on page load
 window.addEventListener('DOMContentLoaded', () => {
-    loadCompanyInfo();
-    setTodayAsDefault();
-    setupNavigation();
-    setupReceiptUpload();
-    setupQuickFill();
-    setupCalculator();
-    setupExpenses();
-    setupDashboard();
-    setupAccessories();
+    console.log('DOMContentLoaded event fired - starting setup');
+    try {
+        loadCompanyInfo();
+        console.log('loadCompanyInfo completed');
+    } catch (e) {
+        console.error('Error in loadCompanyInfo:', e);
+    }
+    
+    try {
+        setTodayAsDefault();
+        console.log('setTodayAsDefault completed');
+    } catch (e) {
+        console.error('Error in setTodayAsDefault:', e);
+    }
+    
+    try {
+        setupNavigation();
+        console.log('setupNavigation completed');
+    } catch (e) {
+        console.error('Error in setupNavigation:', e);
+    }
+    
+    try {
+        console.log('About to call setupReceiptUpload');
+        setupReceiptUpload();
+        console.log('setupReceiptUpload completed');
+    } catch (e) {
+        console.error('Error in setupReceiptUpload:', e);
+    }
+    
+    try {
+        setupQuickFill();
+        setupCalculator();
+        setupExpenses();
+        setupDashboard();
+        setupAccessories();
+        console.log('All remaining setup functions completed');
+    } catch (e) {
+        console.error('Error in remaining setup functions:', e);
+    }
 });
 
 // Set today's date as default
