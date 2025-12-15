@@ -1167,3 +1167,4 @@ if (typeof window.navigateTo === 'function') {
 } else {
     console.error('window.navigateTo is NOT available!');
 }
+});
