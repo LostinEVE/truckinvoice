@@ -1310,6 +1310,9 @@ function setupReceiptUpload() {
                 <div class="resize-handle handle-w"></div>
             `;
             
+            console.log('Resize handles added to crop overlay');
+            console.log('Crop overlay handles count:', cropOverlay.querySelectorAll('.resize-handle').length);
+            
             // Store crop rectangle data
             window.cropRect = { 
                 left, 
@@ -1340,12 +1343,15 @@ function setupReceiptUpload() {
             e.preventDefault();
             e.stopPropagation();
             
+            console.log('Mouse down on:', e.target.className);
+            
             if (e.target.classList.contains('resize-handle')) {
                 isResizing = true;
                 resizeDirection = e.target.className.split(' ').find(c => c.startsWith('handle-')).replace('handle-', '');
                 console.log('Started resizing:', resizeDirection);
             } else {
                 isDragging = true;
+                console.log('Started dragging');
                 const rect = cropOverlay.getBoundingClientRect();
                 const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
                 dragOffset.x = e.clientX - rect.left;
