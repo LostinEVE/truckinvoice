@@ -1,8 +1,13 @@
-const CACHE_NAME = 'truckinvoice-v10-sync';
+const CACHE_NAME = 'truckinvoice-v11-sync';
 const urlsToCache = [
   './index.html',
   './style.css',
   './script.js',
+  './expenses.js',
+  './dashboard.js',
+  './invoices.js',
+  './accessories.js',
+  './state.js',
   './firebase-config.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js',
