@@ -1,5 +1,3 @@
-console.log('script.js is loading...');
-
 // Initialize EmailJS
 emailjs.init('flEWLVoiJ1uMBZgnW');
 
@@ -23,46 +21,15 @@ if ('serviceWorker' in navigator) {
 
 // Load saved company info on page load
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded event fired - starting setup');
-    try {
-        loadCompanyInfo();
-        console.log('loadCompanyInfo completed');
-    } catch (e) {
-        console.error('Error in loadCompanyInfo:', e);
-    }
-    
-    try {
-        setTodayAsDefault();
-        console.log('setTodayAsDefault completed');
-    } catch (e) {
-        console.error('Error in setTodayAsDefault:', e);
-    }
-    
-    try {
-        setupNavigation();
-        console.log('setupNavigation completed');
-    } catch (e) {
-        console.error('Error in setupNavigation:', e);
-    }
-    
-    try {
-        console.log('About to call setupReceiptUpload');
-        setupReceiptUpload();
-        console.log('setupReceiptUpload completed');
-    } catch (e) {
-        console.error('Error in setupReceiptUpload:', e);
-    }
-    
-    try {
-        setupQuickFill();
-        setupCalculator();
-        setupExpenses();
-        setupDashboard();
-        setupAccessories();
-        console.log('All remaining setup functions completed');
-    } catch (e) {
-        console.error('Error in remaining setup functions:', e);
-    }
+    loadCompanyInfo();
+    setTodayAsDefault();
+    setupNavigation();
+    setupReceiptUpload();
+    setupQuickFill();
+    setupCalculator();
+    setupExpenses();
+    setupDashboard();
+    setupAccessories();
 });
 
 // Set today's date as default
@@ -1279,36 +1246,19 @@ function setupReceiptUpload() {
     const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
     const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
     const fileInputLabel = document.querySelector('.file-input-label');
-    
-    console.log('Setting up receipt upload - elements found:', {
-        receiptInput: !!receiptInput,
-        receiptForm: !!receiptForm,
-        previewImage: !!previewImage,
-        receiptPreview: !!receiptPreview,
-        processBtn: !!processBtn,
-        addAsExpenseBtn: !!addAsExpenseBtn,
-        useInInvoiceBtn: !!useInInvoiceBtn,
-        fileInputLabel: !!fileInputLabel
-    });
-    
+
     if (!fileInputLabel || !receiptInput) {
-        console.error('Receipt upload setup failed: missing elements', {
-            fileInputLabel: !!fileInputLabel,
-            receiptInput: !!receiptInput
-        });
         return;
     }
 
     // Make the file input label clickable and enable camera on mobile
     fileInputLabel.addEventListener('click', () => {
-        console.log('File input label clicked');
         // Check if on mobile and support camera capture
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
             // Set to camera capture mode
             receiptInput.setAttribute('capture', 'environment');
         }
-        console.log('Triggering receiptInput.click()');
         receiptInput.click();
     });
 
