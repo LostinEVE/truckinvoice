@@ -1795,11 +1795,47 @@ function parseReceiptData(text) {
             if (upperText.includes(business)) {
                 // Look for the business name in the first few lines for better vendor extraction
                 for (let i = 0; i < Math.min(5, lines.length); i++) {
-                    if (lines[i].toUpperCase().includes(business)) {
-                        vendor = lines[i];
-                        category = cat;
-                        console.log(`Found vendor: ${vendor}, category: ${category}`);
-                        break;
+                    const line = lines[i].trim();
+                    if (line.toUpperCase().includes(business)) {
+                        // Clean the vendor name - remove extra info
+                        let cleanVendor = line;
+                        
+                        // Remove phone numbers
+                        cleanVendor = cleanVendor.replace(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '').trim();
+                        
+                        // Remove common address indicators
+                        cleanVendor = cleanVendor.replace(/\d+\s+(ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT)/gi, '').trim();
+                        
+                        // Remove zip codes
+                        cleanVendor = cleanVendor.replace(/\b\d{5}(-\d{4})?\b/g, '').trim();
+                        
+                        // Remove state abbreviations at end
+                        cleanVendor = cleanVendor.replace(/\b[A-Z]{2}\s*$/g, '').trim();
+                        
+                        // Remove store numbers like "#123" or "STORE #123"
+                        cleanVendor = cleanVendor.replace(/STORE\s*#?\d+/gi, '').trim();
+                        cleanVendor = cleanVendor.replace(/#\d+/g, '').trim();
+                        
+                        // Remove extra whitespace and limit length
+                        cleanVendor = cleanVendor.replace(/\s+/g, ' ').trim();
+                        
+                        // If too long, try to extract just the business name part
+                        if (cleanVendor.length > 40) {
+                            const businessMatch = cleanVendor.match(new RegExp(`.*?${business}[^\\d]*`, 'i'));
+                            if (businessMatch) {
+                                cleanVendor = businessMatch[0].replace(/[^\w\s'-]/g, ' ').trim();
+                            }
+                        }
+                        
+                        // Final cleanup and length limit
+                        cleanVendor = cleanVendor.substring(0, 35).trim();
+                        
+                        if (cleanVendor.length > 3) {
+                            vendor = cleanVendor;
+                            category = cat;
+                            console.log(`Found and cleaned vendor: "${vendor}" (from "${line}")`);
+                            break;
+                        }
                     }
                 }
                 if (vendor !== 'Unknown Vendor') break;
@@ -1808,19 +1844,50 @@ function parseReceiptData(text) {
         if (vendor !== 'Unknown Vendor') break;
     }
 
-    // If no known business found, use heuristics for vendor
+    // If no known business found, use heuristics for vendor with better cleaning
     if (vendor === 'Unknown Vendor') {
         for (let i = 0; i < Math.min(5, lines.length); i++) {
-            const line = lines[i].trim();
+            let line = lines[i].trim();
+            
             // Skip obvious non-vendor lines
-            if (line.length > 3 && line.length < 60 && 
-                !line.match(/^\d+$/) && 
-                !line.toUpperCase().includes('RECEIPT') &&
-                !line.toUpperCase().includes('PHONE') &&
-                !line.match(/^\d{3}-\d{3}-\d{4}/) &&
-                !line.match(/\d+\s+(ST|AVE|RD|BLVD|DR)/i)) {
-                vendor = line;
-                console.log(`Heuristic vendor: ${vendor}`);
+            if (line.length < 3 || line.length > 60 || 
+                line.match(/^\d+$/) || 
+                line.toUpperCase().includes('RECEIPT') ||
+                line.toUpperCase().includes('PHONE') ||
+                line.toUpperCase().includes('THANK YOU') ||
+                line.match(/^\d{3}-\d{3}-\d{4}/) ||
+                line.match(/\d+\s+(ST|AVE|RD|BLVD|DR)/i) ||
+                line.match(/^\d{2}\/\d{2}\/\d{2,4}/) ||
+                line.match(/^\$?\d+\.\d{2}$/)) {
+                continue;
+            }
+            
+            // Clean the potential vendor name
+            let cleanVendor = line;
+            
+            // Remove phone numbers
+            cleanVendor = cleanVendor.replace(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '').trim();
+            
+            // Remove addresses
+            cleanVendor = cleanVendor.replace(/\d+\s+(ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE)/gi, '').trim();
+            
+            // Remove zip codes and state codes
+            cleanVendor = cleanVendor.replace(/\b\d{5}(-\d{4})?\b/g, '').trim();
+            cleanVendor = cleanVendor.replace(/\b[A-Z]{2}\s*$/g, '').trim();
+            
+            // Remove store numbers
+            cleanVendor = cleanVendor.replace(/STORE\s*#?\d+/gi, '').trim();
+            cleanVendor = cleanVendor.replace(/#\d+/g, '').trim();
+            
+            // Clean up extra characters and whitespace
+            cleanVendor = cleanVendor.replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ').trim();
+            
+            // Limit length
+            cleanVendor = cleanVendor.substring(0, 35).trim();
+            
+            if (cleanVendor.length > 3) {
+                vendor = cleanVendor;
+                console.log(`Heuristic vendor (cleaned): "${vendor}" (from "${line}")`);
                 break;
             }
         }
