@@ -1,7 +1,26 @@
 /* Crop overlay styling */
 #previewContainer {
     position: relative;
-    display: inline-block;
+    display: block;
+    width: 100%;
+    max-height: 75vh;
+    overflow: auto;
+    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: thin;    /* Firefox */
+    touch-action: pan-y;      /* allow vertical scroll on mobile */
+}
+
+/* Custom scrollbar for Chrome, Safari, Edge */
+#previewContainer::-webkit-scrollbar {
+    width: 8px;
+    background: transparent;
+}
+#previewContainer::-webkit-scrollbar-thumb {
+    background: #c3c3c3;
+    border-radius: 4px;
+}
+#previewContainer::-webkit-scrollbar-thumb:hover {
+    background: #a0a0a0;
 }
 #previewImage {
     max-width: 100%;
@@ -10,8 +29,11 @@
 #cropOverlay {
     position: absolute;
     border: 2px dashed #0b79d0;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.15);
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.10); /* lighter mask so page stays readable */
     display: none;
+    pointer-events: auto;  /* only overlay captures interactions */
+    touch-action: none;    /* prevent accidental pinch/zoom within overlay */
+    z-index: 10;           /* sit above image but below surrounding controls */
 }
 .resize-handle {
     position: absolute;
@@ -1306,6 +1328,11 @@ select:focus {
 }
 
 @media (max-width: 600px) {
+    #previewContainer {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
     .button-group {
         grid-template-columns: 1fr;
     }
@@ -1325,7 +1352,7 @@ select:focus {
     }
 
     .receipt-preview img {
-        max-height: 70vh;
+        max-height: 65vh;
         object-fit: contain;
     }
 

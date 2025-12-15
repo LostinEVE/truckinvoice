@@ -91,7 +91,16 @@ export function displayExpenses(searchTerm = '') {
             </div>
             <div class="history-details">
                 <div><strong>Vendor:</strong> ${expense.vendor}</div>
-                ${expense.notes ? `<div><strong>Notes:</strong> ${expense.notes}</div>` : ''}
+                ${Array.isArray(expense.items) && expense.items.length ? `
+                <div><strong>Items:</strong></div>
+                <div>
+                    ${expense.items.map(it => `<div>- ${it.description} — $${it.price}</div>`).join('')}
+                </div>` : ''}
+                ${expense.notes ? `
+                <details>
+                    <summary>View Details</summary>
+                    <div class="section-description" style="white-space: pre-wrap;">${expense.notes}</div>
+                </details>` : ''}
             </div>
             <div class="history-actions">
                 <button class="btn-delete" onclick="deleteExpense('${expense.id}')">Delete</button>

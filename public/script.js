@@ -14,454 +14,193 @@ import { setupExpenses, displayExpenses, deleteExpense, getExpenses, saveExpense
 import { setupDashboard, updateDashboard, exportExpenseReport, exportProfitLossStatement } from './dashboard.js';
 import { setupAccessories } from './accessories.js';
 
-// Expose invoice actions for inline history controls
-Object.assign(window, { displayHistory, togglePaymentStatus, deleteInvoice, regenerateInvoice });
+// Shared crop state so OCR handler can use the current selection
+let cropRect = null;
+let applyCropFn = null;
+let previewImageRef = null;
+let tesseractData = null;
 
-// Initialize EmailJS
-emailjs.init(EMAILJS_CONFIG.publicKey);
+// Limits for OCR uploads
+const MAX_OCR_FILE_KB = 900; // keep under 1 MB API limit
+const MAX_OCR_DIM = 1600;    // constrain max width/height to reduce size
 
-// Register service worker for PWA
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js')
-            .then((registration) => {
-                console.log('ServiceWorker registered:', registration);
-            })
-            .catch((error) => {
-                console.log('ServiceWorker registration failed:', error);
-            });
+// Navigation between views (tabs + dropdown)
+function showView(view) {
+    const viewMap = {
+        invoice: 'invoiceFormView',
+        receipt: 'receiptUploadView',
+        history: 'invoiceHistoryView',
+        expenses: 'expensesView',
+        dashboard: 'dashboardView'
+    };
+
+    Object.entries(viewMap).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', key === view);
     });
-}
 
-// Load saved company info on page load
-window.addEventListener('DOMContentLoaded', () => {
-    try { loadCompanyInfo(); } catch (e) { console.error('loadCompanyInfo failed', e); }
-    try { setTodayAsDefault(); } catch (e) { console.error('setTodayAsDefault failed', e); }
-    try { setupInvoiceForm(); } catch (e) { console.error('setupInvoiceForm failed', e); }
-    // Ensure navigation is always initialized
-    try { setupNavigation(); } catch (e) { console.error('setupNavigation failed', e); }
-    try { setupReceiptUpload(); } catch (e) { console.error('setupReceiptUpload failed', e); }
-    try { setupQuickFill(); } catch (e) { console.error('setupQuickFill failed', e); }
-    try { setupCalculator(); } catch (e) { console.error('setupCalculator failed', e); }
-    try { setupExpenses(); } catch (e) { console.error('setupExpenses failed', e); }
-    try { setupDashboard(); } catch (e) { console.error('setupDashboard failed', e); }
-    try { setupAccessories(); } catch (e) { console.error('setupAccessories failed', e); }
-});
+    const tabMap = {
+        invoice: 'newInvoiceBtn',
+        receipt: 'receiptUploadBtn',
+        history: 'historyBtn',
+        expenses: 'expensesBtn',
+        dashboard: 'dashboardBtn'
+    };
 
-// (invoice form, company info, history, quick fill now in invoices.js)
+    Object.entries(tabMap).forEach(([key, id]) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.toggle('active', key === view);
+    });
 
-// (invoice generation and history now in invoices.js)
+    const dropdown = document.getElementById('navDropdown');
+    if (dropdown && dropdown.value !== view) {
+        dropdown.value = view;
+    }
+} // <-- Add this closing brace to end setupReceiptUpload function
 
 function setupNavigation() {
-    const newInvoiceBtn = document.getElementById('newInvoiceBtn');
-    const receiptUploadBtn = document.getElementById('receiptUploadBtn');
-    const historyBtn = document.getElementById('historyBtn');
-    const expensesBtn = document.getElementById('expensesBtn');
-    const dashboardBtn = document.getElementById('dashboardBtn');
-
-    const invoiceFormView = document.getElementById('invoiceFormView');
-    const receiptUploadView = document.getElementById('receiptUploadView');
-    const historyView = document.getElementById('historyView');
-    const expensesView = document.getElementById('expensesView');
-    const dashboardView = document.getElementById('dashboardView');
-
-    const searchInput = document.getElementById('searchHistory');
-    const navDropdown = document.getElementById('navDropdown');
-
-    const allButtons = [newInvoiceBtn, receiptUploadBtn, historyBtn, expensesBtn, dashboardBtn];
-    const allViews = [invoiceFormView, receiptUploadView, historyView, expensesView, dashboardView];
-
-    function switchView(activeView, activeBtn) {
-        allViews.forEach(view => {
-            view.classList.remove('active');
-            view.style.display = 'none';
-        });
-        allButtons.forEach(btn => btn.classList.remove('active'));
-        activeView.classList.add('active');
-        activeView.style.display = 'block';
-        activeBtn.classList.add('active');
+    const dropdown = document.getElementById('navDropdown');
+    if (dropdown) {
+        const handler = (e) => showView(e.target.value || 'invoice');
+        dropdown.addEventListener('change', handler);
+        dropdown.addEventListener('input', handler);
     }
 
-    function handleNavigate(value) {
-        switch(value) {
-            case 'invoice':
-                switchView(invoiceFormView, newInvoiceBtn);
-                populateCustomerList();
-                break;
-            case 'receipt':
-                switchView(receiptUploadView, receiptUploadBtn);
-                break;
-            case 'history':
-                switchView(historyView, historyBtn);
-                displayHistory();
-                break;
-            case 'expenses':
-                switchView(expensesView, expensesBtn);
-                displayExpenses();
-                break;
-            case 'dashboard':
-                switchView(dashboardView, dashboardBtn);
-                updateDashboard();
-                break;
-        }
-    }
+    const bindings = [
+        { id: 'newInvoiceBtn', view: 'invoice' },
+        { id: 'receiptUploadBtn', view: 'receipt' },
+        { id: 'historyBtn', view: 'history' },
+        { id: 'expensesBtn', view: 'expenses' },
+        { id: 'dashboardBtn', view: 'dashboard' }
+    ];
 
-    if (navDropdown) {
-        ['change','input'].forEach(evt => navDropdown.addEventListener(evt, (e) => handleNavigate(e.target.value)));
-    }
-
-    newInvoiceBtn.addEventListener('click', () => {
-        switchView(invoiceFormView, newInvoiceBtn);
-        populateCustomerList();
-        if (navDropdown) navDropdown.value = 'invoice';
+    bindings.forEach(({ id, view }) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', () => showView(view));
     });
 
-    receiptUploadBtn.addEventListener('click', () => {
-        switchView(receiptUploadView, receiptUploadBtn);
-        if (navDropdown) navDropdown.value = 'receipt';
-    });
-
-    historyBtn.addEventListener('click', () => {
-        switchView(historyView, historyBtn);
-        displayHistory();
-        if (navDropdown) navDropdown.value = 'history';
-    });
-
-    expensesBtn.addEventListener('click', () => {
-        switchView(expensesView, expensesBtn);
-        displayExpenses();
-        if (navDropdown) navDropdown.value = 'expenses';
-    });
-
-    dashboardBtn.addEventListener('click', () => {
-        switchView(dashboardView, dashboardBtn);
-        updateDashboard();
-        if (navDropdown) navDropdown.value = 'dashboard';
-    });
-
-    searchInput.addEventListener('input', (e) => {
-        displayHistory(e.target.value);
-    });
+    showView('invoice');
 }
 
-// Receipt upload + OCR + adjustable crop overlay
-function setupReceiptUpload() {
-    const fileInput = document.getElementById('receiptImage');
-    const preview = document.getElementById('receiptPreview');
-    const previewImg = document.getElementById('previewImage');
-    const overlay = document.getElementById('cropOverlay');
-    const showPre = document.getElementById('showPreprocessed');
-    const enhancedToggle = document.getElementById('enhancedOcrToggle');
-    const doNotSavePhotos = document.getElementById('doNotSavePhotos');
-
-    if (!fileInput || !preview || !previewImg || !overlay) return;
-
-    let crop = { x: 0, y: 0, w: 0, h: 0 };
-    let dragging = false;
-    let resizing = null; // 'nw','n','ne','e','se','s','sw','w'
-    let start = { x: 0, y: 0 };
-    let startRect = { x: 0, y: 0, w: 0, h: 0 };
-
-    function showOverlay() {
-        overlay.style.display = 'block';
-        overlay.style.left = crop.x + 'px';
-        overlay.style.top = crop.y + 'px';
-        overlay.style.width = crop.w + 'px';
-        overlay.style.height = crop.h + 'px';
-    }
-
-    function ensureDefaultCrop() {
-        const r = previewImg.getBoundingClientRect();
-        const container = previewImg.parentElement.getBoundingClientRect();
-        const pad = 20;
-        crop.x = pad;
-        crop.y = pad;
-        crop.w = Math.max(50, r.width - pad * 2);
-        crop.h = Math.max(50, r.height - pad * 2);
-        showOverlay();
-    }
-
-    function onMouseDown(e) {
-        const target = e.target;
-        const rect = overlay.getBoundingClientRect();
-        start = { x: e.clientX, y: e.clientY };
-        startRect = { x: crop.x, y: crop.y, w: crop.w, h: crop.h };
-        if (target.classList.contains('resize-handle')) {
-            if (target.classList.contains('handle-nw')) resizing = 'nw';
-            else if (target.classList.contains('handle-n')) resizing = 'n';
-            else if (target.classList.contains('handle-ne')) resizing = 'ne';
-            else if (target.classList.contains('handle-e')) resizing = 'e';
-            else if (target.classList.contains('handle-se')) resizing = 'se';
-            else if (target.classList.contains('handle-s')) resizing = 's';
-            else if (target.classList.contains('handle-sw')) resizing = 'sw';
-            else if (target.classList.contains('handle-w')) resizing = 'w';
-        } else {
-            dragging = true;
-        }
-        e.preventDefault();
-    }
-
-    function onMouseMove(e) {
-        if (!dragging && !resizing) return;
-        const dx = e.clientX - start.x;
-        const dy = e.clientY - start.y;
-        if (dragging) {
-            crop.x = Math.max(0, startRect.x + dx);
-            crop.y = Math.max(0, startRect.y + dy);
-        } else if (resizing) {
-            const minSize = 30;
-            let x = startRect.x, y = startRect.y, w = startRect.w, h = startRect.h;
-            if (resizing.includes('w')) { x = startRect.x + dx; w = startRect.w - dx; }
-            if (resizing.includes('e')) { w = startRect.w + dx; }
-            if (resizing.includes('n')) { y = startRect.y + dy; h = startRect.h - dy; }
-            if (resizing.includes('s')) { h = startRect.h + dy; }
-            crop.x = Math.max(0, x);
-            crop.y = Math.max(0, y);
-            crop.w = Math.max(minSize, w);
-            crop.h = Math.max(minSize, h);
-        }
-        showOverlay();
-    }
-
-    function onMouseUp() {
-        dragging = false;
-        resizing = null;
-    }
-
-    overlay.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const url = URL.createObjectURL(file);
-        previewImg.src = url;
-        preview.classList.remove('hidden');
-        await new Promise(res => previewImg.onload = res);
-        ensureDefaultCrop();
-        await processReceiptWithOCR(file);
-    });
-
-    async function processReceiptWithOCR(file) {
-        const ocrStatus = document.getElementById('ocrStatus');
-        const ocrMessage = document.getElementById('ocrMessage');
-        const ocrResults = document.getElementById('ocrResults');
-        const rawTextEl = document.getElementById('rawOcrText');
-        const amountEl = document.getElementById('extractedAmount');
-        const vendorEl = document.getElementById('extractedVendor');
-        const dateEl = document.getElementById('extractedDate');
-
-        ocrStatus.classList.remove('hidden');
-        ocrResults.classList.add('hidden');
-        ocrMessage.textContent = 'Processing receipt with OCR...';
-
-        // Prepare cropped image via canvas
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const scaleX = previewImg.naturalWidth / previewImg.clientWidth;
-        const scaleY = previewImg.naturalHeight / previewImg.clientHeight;
-        const sx = Math.round(crop.x * scaleX);
-        const sy = Math.round(crop.y * scaleY);
-        const sw = Math.round(crop.w * scaleX);
-        const sh = Math.round(crop.h * scaleY);
-        canvas.width = sw; canvas.height = sh;
-        const imgEl = previewImg;
-        await new Promise(res => { if (imgEl.complete) res(); else imgEl.onload = res; });
-        ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, sw, sh);
-
-        // Optional preprocessing
-        if (enhancedToggle && enhancedToggle.checked) {
-            const imgData = ctx.getImageData(0, 0, sw, sh);
-            // simple contrast bump
-            const data = imgData.data;
-            const factor = 1.2;
-            for (let i = 0; i < data.length; i += 4) {
-                data[i] = Math.min(255, data[i] * factor);
-                data[i+1] = Math.min(255, data[i+1] * factor);
-                data[i+2] = Math.min(255, data[i+2] * factor);
-            }
-            ctx.putImageData(imgData, 0, 0);
-        }
-
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
-        const formData = new FormData();
-        formData.append('language', OCR_CONFIG.language || 'eng');
-        formData.append('isOverlayRequired', 'false');
-        formData.append('file', blob, 'crop.jpg');
-
-        try {
-            const resp = await fetch(OCR_CONFIG.apiUrl, {
-                method: 'POST',
-                headers: { 'apikey': OCR_CONFIG.apiKey },
-                body: formData
-            });
-            const json = await resp.json();
-            const parsedText = json?.ParsedResults?.[0]?.ParsedText || '';
-            rawTextEl.value = parsedText;
-            const amtMatch = parsedText.match(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})/);
-            amountEl.value = amtMatch ? amtMatch[1].replace(/,/g,'') : '';
-            const dateMatch = parsedText.match(/(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})|(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
-            if (dateMatch) {
-                const d = new Date(dateMatch[0].replace(/\//g,'-'));
-                if (!isNaN(d)) dateEl.valueAsDate = d;
-            }
-            const firstLine = parsedText.split('\n').find(l => l.trim().length > 2) || '';
-            vendorEl.value = firstLine.trim();
-
-            ocrStatus.classList.add('hidden');
-            ocrResults.classList.remove('hidden');
-        } catch (err) {
-            ocrMessage.textContent = 'OCR failed. Please try again.';
-            console.error(err);
-        }
-    }
-
-    // Action buttons
-    const copyBtn = document.getElementById('copyRawBtn');
-    const saveRawExpenseBtn = document.getElementById('saveRawExpenseBtn');
-    const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
-    const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
-    const retryAmountBtn = document.getElementById('retryAmountBtn');
-    const retryEnhancedBtn = document.getElementById('retryEnhancedBtn');
-
-    copyBtn?.addEventListener('click', () => {
-        const text = document.getElementById('rawOcrText').value;
-        navigator.clipboard.writeText(text);
-    });
-
-    saveRawExpenseBtn?.addEventListener('click', () => {
-        const amount = parseFloat(document.getElementById('extractedAmount').value || '0');
-        const date = document.getElementById('extractedDate').value || '';
-        const category = document.getElementById('extractedCategory').value || '';
-        const vendor = document.getElementById('extractedVendor').value || '';
-        const notes = 'Saved from raw OCR text';
-        if (!amount || !date || !category || !vendor) return alert('Please fill vendor, amount, date, and category');
-        saveExpense({ date, amount, category, vendor, notes });
-        alert('Saved as expense');
-    });
-
-    addAsExpenseBtn?.addEventListener('click', () => {
-        const amount = parseFloat(document.getElementById('extractedAmount').value || '0');
-        const date = document.getElementById('extractedDate').value || '';
-        const category = document.getElementById('extractedCategory').value || '';
-        const vendor = document.getElementById('extractedVendor').value || '';
-        const notes = 'From receipt OCR';
-        if (!amount || !date || !category || !vendor) return alert('Please fill vendor, amount, date, and category');
-        saveExpense({ date, amount, category, vendor, notes });
-        alert('Expense added');
-    });
-
-    useInInvoiceBtn?.addEventListener('click', () => {
-        const amount = document.getElementById('extractedAmount').value || '';
-        document.getElementById('amount').value = amount;
-        alert('Amount copied to invoice form');
-    });
-
-    retryAmountBtn?.addEventListener('click', () => {
-        const text = document.getElementById('rawOcrText').value || '';
-        const m = text.match(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})/);
-        document.getElementById('extractedAmount').value = m ? m[1].replace(/,/g,'') : '';
-    });
-
-    retryEnhancedBtn?.addEventListener('click', () => {
-        enhancedToggle.checked = true;
-        const file = fileInput.files?.[0];
-        if (file) processReceiptWithOCR(file);
-    });
-}
-
-// Calculator Setup (Miles/Rate and Product Count)
-function setupCalculator() {
-    // Calculator tab switching
+// Calculator panels (miles vs product count)
+function setupCalculators() {
     const calcTabs = document.querySelectorAll('.calc-tab');
-    const milesCalculator = document.getElementById('milesCalculator');
-    const productCalculator = document.getElementById('productCalculator');
+    const milesPanel = document.getElementById('milesCalculator');
+    const productPanel = document.getElementById('productCalculator');
 
     calcTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            // Update active tab
             calcTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-
-            // Show corresponding calculator
-            const calcType = tab.dataset.calc;
-            if (calcType === 'miles') {
-                milesCalculator.classList.add('active');
-                productCalculator.classList.remove('active');
-            } else {
-                productCalculator.classList.add('active');
-                milesCalculator.classList.remove('active');
+            const target = tab.dataset.calc;
+            if (target === 'miles') {
+                milesPanel?.classList.add('active');
+                productPanel?.classList.remove('active');
+            } else if (target === 'product') {
+                productPanel?.classList.add('active');
+                milesPanel?.classList.remove('active');
             }
         });
     });
 
-    // Miles Calculator
+    // Miles calculator
     const milesInput = document.getElementById('miles');
-    const rateInput = document.getElementById('ratePerMile');
+    const ratePerMileInput = document.getElementById('ratePerMile');
+    const calcAmountSpan = document.querySelector('#calculatedAmount .calc-value');
     const useCalculatedBtn = document.getElementById('useCalculated');
-    const calcValueSpan = document.querySelector('#calculatedAmount .calc-value');
 
-    function updateMilesCalculation() {
-        const miles = parseFloat(milesInput.value) || 0;
-        const rate = parseFloat(rateInput.value) || 0;
+    function updateMilesCalc() {
+        const miles = parseFloat(milesInput?.value) || 0;
+        const rate = parseFloat(ratePerMileInput?.value) || 0;
         const total = miles * rate;
-
-        if (total > 0) {
-            calcValueSpan.textContent = `$${total.toFixed(2)}`;
-            useCalculatedBtn.disabled = false;
-        } else {
-            calcValueSpan.textContent = '$0.00';
-            useCalculatedBtn.disabled = true;
-        }
+        if (calcAmountSpan) calcAmountSpan.textContent = `$${total.toFixed(2)}`;
+        if (useCalculatedBtn) useCalculatedBtn.disabled = total <= 0;
     }
 
-    milesInput.addEventListener('input', updateMilesCalculation);
-    rateInput.addEventListener('input', updateMilesCalculation);
-
-    useCalculatedBtn.addEventListener('click', () => {
-        const calcValue = calcValueSpan.textContent.replace('$', '');
-        document.getElementById('amount').value = calcValue;
-        visualFeedback();
+    milesInput?.addEventListener('input', updateMilesCalc);
+    ratePerMileInput?.addEventListener('input', updateMilesCalc);
+    useCalculatedBtn?.addEventListener('click', () => {
+        const calcValue = calcAmountSpan?.textContent?.replace('$', '') || '0';
+        const amountInput = document.getElementById('amount');
+        if (amountInput) {
+            amountInput.value = calcValue;
+            amountInput.style.background = '#e8f5e9';
+            setTimeout(() => { amountInput.style.background = ''; }, 1000);
+        }
     });
 
-    // Product Calculator
+    // Product count calculator
     const pieceCountInput = document.getElementById('pieceCount');
     const ratePerPieceInput = document.getElementById('ratePerPiece');
-    const productDescInput = document.getElementById('productDescription');
-    const useCalculatedProductBtn = document.getElementById('useCalculatedProduct');
     const calcProductValueSpan = document.querySelector('#calculatedProductAmount .calc-value');
+    const useCalculatedProductBtn = document.getElementById('useCalculatedProduct');
 
     function updateProductCalculation() {
-        const pieces = parseFloat(pieceCountInput.value) || 0;
-        const rate = parseFloat(ratePerPieceInput.value) || 0;
+        const pieces = parseFloat(pieceCountInput?.value) || 0;
+        const rate = parseFloat(ratePerPieceInput?.value) || 0;
         const total = pieces * rate;
-
-        if (total > 0) {
-            calcProductValueSpan.textContent = `$${total.toFixed(2)}`;
-            useCalculatedProductBtn.disabled = false;
-        } else {
-            calcProductValueSpan.textContent = '$0.00';
-            useCalculatedProductBtn.disabled = true;
-        }
+        if (calcProductValueSpan) calcProductValueSpan.textContent = `$${total.toFixed(2)}`;
+        if (useCalculatedProductBtn) useCalculatedProductBtn.disabled = total <= 0;
     }
 
-    pieceCountInput.addEventListener('input', updateProductCalculation);
-    ratePerPieceInput.addEventListener('input', updateProductCalculation);
-
-    useCalculatedProductBtn.addEventListener('click', () => {
-        const calcValue = calcProductValueSpan.textContent.replace('$', '');
-        document.getElementById('amount').value = calcValue;
-        visualFeedback();
+    pieceCountInput?.addEventListener('input', updateProductCalculation);
+    ratePerPieceInput?.addEventListener('input', updateProductCalculation);
+    useCalculatedProductBtn?.addEventListener('click', () => {
+        const calcValue = calcProductValueSpan?.textContent?.replace('$', '') || '0';
+        const amountInput = document.getElementById('amount');
+        if (amountInput) {
+            amountInput.value = calcValue;
+            amountInput.style.background = '#e8f5e9';
+            setTimeout(() => { amountInput.style.background = ''; }, 1000);
+        }
     });
 
-    function visualFeedback() {
-        const amountInput = document.getElementById('amount');
-        amountInput.style.background = '#e8f5e9';
-        setTimeout(() => {
-            amountInput.style.background = '';
-        }, 1000);
-    }
+    // Default state
+    updateMilesCalc();
+    updateProductCalculation();
+}
+
+// Compress an image file to stay under the OCR API size limit
+async function compressImageFile(file, { maxSizeKB = MAX_OCR_FILE_KB, maxDim = MAX_OCR_DIM } = {}) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            try {
+                // Scale down if needed based on maxDim
+                const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                const targetW = Math.max(1, Math.round(img.width * scale));
+                const targetH = Math.max(1, Math.round(img.height * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, targetW, targetH);
+
+                const tryEncode = (quality) => {
+                    canvas.toBlob((blob) => {
+                        if (!blob) { reject(new Error('Failed to encode image')); return; }
+                        if (blob.size <= maxSizeKB * 1024 || quality <= 0.4) {
+                            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
+                        } else {
+                            tryEncode(quality - 0.1);
+                        }
+                    }, 'image/jpeg', quality);
+                };
+
+                tryEncode(0.9);
+            } catch (err) {
+                reject(err);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        };
+        img.onerror = (e) => {
+            URL.revokeObjectURL(url);
+            reject(e);
+        };
+        img.src = url;
+    });
 }
 
 // ===== PHASE 2: Receipt Upload and OCR Functions =====
@@ -471,6 +210,7 @@ function setupReceiptUpload() {
     const receiptInput = document.getElementById('receiptImage');
     const receiptForm = document.getElementById('receiptForm');
     const previewImage = document.getElementById('previewImage');
+    previewImageRef = previewImage;
     const receiptPreview = document.getElementById('receiptPreview');
     const processBtn = document.getElementById('processReceiptBtn');
     const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
@@ -577,8 +317,10 @@ function setupReceiptUpload() {
             } catch (e) {
                 alert('Unable to copy text. You can select and copy manually.');
             }
-        });
-    }
+                    // Parse the OCR text to extract receipt data
+                    const parsedData = parseReceiptData(ocrText);
+                    // Keep parsed line items for later saving to Expenses
+                    try { window._lastParsedItems = Array.isArray(parsedData.items) ? parsedData.items : []; } catch (_) {}
 
     // Save raw OCR text as an expense (verbatim)
     if (saveRawExpenseBtn) {
@@ -613,8 +355,25 @@ function setupReceiptUpload() {
                 timestamp: new Date().toISOString()
             };
 
-            saveExpense(expense);
+            try { saveExpense(expense); } catch (e) {
+                console.error('saveExpense failed', e);
+                alert('Failed to save expense: ' + (e && e.message ? e.message : e));
+                return;
+            }
             alert('Raw OCR text saved as expense. Review in Expenses.');
+            try { displayExpenses(); } catch (_) {}
+            try { showView('expenses'); } catch (_) {
+                const expensesView = document.getElementById('expensesView');
+                const receiptView = document.getElementById('receiptUploadView');
+                const tabBtn = document.getElementById('expensesBtn');
+                const receiptBtn = document.getElementById('receiptUploadBtn');
+                const dropdown = document.getElementById('navDropdown');
+                if (expensesView) expensesView.classList.add('active');
+                if (receiptView) receiptView.classList.remove('active');
+                if (tabBtn) tabBtn.classList.add('active');
+                if (receiptBtn) receiptBtn.classList.remove('active');
+                if (dropdown) dropdown.value = 'expenses';
+            }
             resetReceiptForm();
         });
     }
@@ -624,7 +383,10 @@ function setupReceiptUpload() {
         const vendor = document.getElementById('extractedVendor').value || 'Receipt Upload';
         const amount = parseFloat(document.getElementById('extractedAmount').value) || 0;
         const date = document.getElementById('extractedDate').value || new Date().toISOString().split('T')[0];
-        const category = document.getElementById('extractedCategory').value || 'other';
+        const categoryEl = document.getElementById('extractedCategory');
+        // Ensure category is selectable on mobile and has a value
+        if (categoryEl) { categoryEl.disabled = false; }
+        const category = (categoryEl && categoryEl.value) ? categoryEl.value : 'other';
 
         // Add to expenses
         const expense = {
@@ -633,12 +395,39 @@ function setupReceiptUpload() {
             amount,
             category,
             vendor,
-            notes: 'Added from receipt upload',
+                // Prefer raw OCR text if available so you can review receipt details later
+                notes: (document.getElementById('rawOcrText')?.value || '').trim() || 'Added from receipt upload',
+                // Attach parsed items when available
+                items: (window._lastParsedItems && window._lastParsedItems.length ? window._lastParsedItems : undefined),
             timestamp: new Date().toISOString()
         };
 
-        saveExpense(expense);
+        // Persist and immediately refresh Expenses view
+        try {
+            saveExpense(expense);
+        } catch (e) {
+            console.error('saveExpense failed', e);
+            alert('Failed to save expense: ' + (e && e.message ? e.message : e));
+            return;
+        }
+
         alert('Expense added successfully!');
+
+        // Update expenses list and navigate to Expenses view to show the saved item
+        try { displayExpenses(); } catch (_) {}
+        try { showView('expenses'); } catch (_) {
+            const expensesView = document.getElementById('expensesView');
+            const receiptView = document.getElementById('receiptUploadView');
+            const tabBtn = document.getElementById('expensesBtn');
+            const receiptBtn = document.getElementById('receiptUploadBtn');
+            const dropdown = document.getElementById('navDropdown');
+            if (expensesView) expensesView.classList.add('active');
+            if (receiptView) receiptView.classList.remove('active');
+            if (tabBtn) tabBtn.classList.add('active');
+            if (receiptBtn) receiptBtn.classList.remove('active');
+            if (dropdown) dropdown.value = 'expenses';
+        }
+
         resetReceiptForm();
     });
 
@@ -712,16 +501,19 @@ function setupReceiptUpload() {
     // CROPPING UI
     const previewContainer = document.getElementById('previewContainer');
     const cropOverlay = document.getElementById('cropOverlay');
+    const applyCropBtn = document.getElementById('applyCropBtn');
+    const applyCropProcessBtn = document.getElementById('applyCropProcessBtn');
+    const resetCropBtn = document.getElementById('resetCropBtn');
 
     // Simple adjustable crop box: drag to move, handles to resize
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
     let isResizing = false;
     let resizeDir = null; // 'nw','ne','sw','se','n','s','e','w'
-    let cropRect = null;
 
     function toImageCoords(clientX, clientY) {
-        const imgRect = previewImage.getBoundingClientRect();
+        const imgEl = previewImageRef || previewImage;
+        const imgRect = imgEl.getBoundingClientRect();
         const x = Math.max(0, Math.min(imgRect.width, clientX - imgRect.left));
         const y = Math.max(0, Math.min(imgRect.height, clientY - imgRect.top));
         return { x, y, imgRect };
@@ -729,7 +521,8 @@ function setupReceiptUpload() {
 
     // Initialize overlay when preview shows
     function ensureDefaultCrop() {
-        const imgRect = previewImage.getBoundingClientRect();
+        const imgEl = previewImageRef || previewImage;
+        const imgRect = imgEl.getBoundingClientRect();
         // default to central box covering ~80% width/height
         const left = imgRect.width * 0.1;
         const top = imgRect.height * 0.1;
@@ -745,30 +538,29 @@ function setupReceiptUpload() {
     }
 
     // Drag to move
-    cropOverlay.addEventListener('mousedown', (e) => {
-        const target = e.target;
+    const startDragResize = (clientX, clientY, target) => {
+        if (!target) return;
         if (target.classList.contains('resize-handle')) {
             isResizing = true;
             resizeDir = target.dataset.dir;
         } else {
             isDragging = true;
             const rect = cropOverlay.getBoundingClientRect();
-            dragOffset.x = e.clientX - rect.left;
-            dragOffset.y = e.clientY - rect.top;
+            dragOffset.x = clientX - rect.left;
+            dragOffset.y = clientY - rect.top;
         }
-        e.preventDefault();
-    });
+    };
 
-    window.addEventListener('mousemove', (e) => {
+    const handleDragResize = (clientX, clientY) => {
         if (!cropRect) return;
-        const { x, y, imgRect } = toImageCoords(e.clientX, e.clientY);
+        const { x, y, imgRect } = toImageCoords(clientX, clientY);
         let left = cropRect.left;
         let top = cropRect.top;
         let width = cropRect.width;
         let height = cropRect.height;
         if (isDragging) {
-            left = Math.max(0, Math.min(imgRect.width - width, e.clientX - imgRect.left - dragOffset.x));
-            top = Math.max(0, Math.min(imgRect.height - height, e.clientY - imgRect.top - dragOffset.y));
+            left = Math.max(0, Math.min(imgRect.width - width, clientX - imgRect.left - dragOffset.x));
+            top = Math.max(0, Math.min(imgRect.height - height, clientY - imgRect.top - dragOffset.y));
         } else if (isResizing && resizeDir) {
             const right = left + width;
             const bottom = top + height;
@@ -788,25 +580,55 @@ function setupReceiptUpload() {
                 height = bottom - newTop;
                 top = newTop;
             }
-        } else {
-            return;
         }
         cropOverlay.style.left = `${left}px`;
         cropOverlay.style.top = `${top}px`;
         cropOverlay.style.width = `${width}px`;
         cropOverlay.style.height = `${height}px`;
         cropRect = { left, top, width, height, imgRect };
+    };
+
+    const getTouchPoint = (e) => {
+        const t = e.touches && e.touches[0] ? e.touches[0] : (e.changedTouches && e.changedTouches[0]);
+        if (!t) return null;
+        return { clientX: t.clientX, clientY: t.clientY };
+    };
+
+    cropOverlay.addEventListener('mousedown', (e) => {
+        startDragResize(e.clientX, e.clientY, e.target);
+        e.preventDefault();
     });
 
-    window.addEventListener('mouseup', () => {
+    cropOverlay.addEventListener('touchstart', (e) => {
+        const p = getTouchPoint(e);
+        if (!p) return;
+        startDragResize(p.clientX, p.clientY, e.target);
+        // prevent scrolling only when interacting with the overlay
+        e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener('mousemove', (e) => {
+        handleDragResize(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging && !isResizing) return; // allow normal scrolls when not interacting with crop box
+        const p = getTouchPoint(e);
+        if (!p) return;
+        handleDragResize(p.clientX, p.clientY);
+        e.preventDefault();
+    }, { passive: false });
+
+    const endDragResize = () => {
         isDragging = false;
         isResizing = false;
-        resizeDir = null;
-    });
+                            const parsedData = parseReceiptData(rawOcrText.value);
+                            try { window._lastParsedItems = Array.isArray(parsedData.items) ? parsedData.items : []; } catch (_) {}
+    window.addEventListener('touchend', endDragResize);
 
     function applyCrop() {
         if (!cropRect || !cropRect.width || !cropRect.height) return null;
-        const img = previewImage;
+        const img = previewImageRef || previewImage;
         const naturalW = img.naturalWidth;
         const naturalH = img.naturalHeight;
         const dispW = cropRect.imgRect.width;
@@ -833,6 +655,9 @@ function setupReceiptUpload() {
         cropOverlay.style.display = 'none';
         return dataURL;
     }
+
+    // expose crop helpers for OCR handler
+    applyCropFn = applyCrop;
 
     // Ensure overlay appears when image is ready
     previewImage.addEventListener('load', () => {
@@ -874,20 +699,31 @@ async function processReceiptWithOCR(file, options = {}) {
     try {
         // Prepare form data for OCR.space API
         const formData = new FormData();
-        formData.append('file', file);
         formData.append('language', OCR_CONFIG.language);
         formData.append('detectOrientation', OCR_CONFIG.detectOrientation);
         formData.append('scale', OCR_CONFIG.scale);
         formData.append('OCREngine', '2'); // Engine 2 is better for receipts
 
         // If a crop is set, apply crop before sending
-        if (cropRect && previewImage && window._originalDataURL) {
-            const dataURL = applyCrop();
+        if (cropRect && applyCropFn && previewImageRef && window._originalDataURL) {
+            const dataURL = applyCropFn();
             if (dataURL) {
                 const blob = await (await fetch(dataURL)).blob();
                 file = new File([blob], 'cropped.jpg', { type: blob.type });
             }
         }
+
+        // Compress if needed to stay under OCR size limit
+        if (file && file.size > MAX_OCR_FILE_KB * 1024) {
+            try {
+                file = await compressImageFile(file, { maxSizeKB: MAX_OCR_FILE_KB, maxDim: MAX_OCR_DIM });
+            } catch (e) {
+                console.warn('Compression failed, sending original file', e);
+            }
+        }
+
+        // Append the final file AFTER crop/compress adjustments
+        formData.append('file', file);
 
         // Call OCR.space API
         const response = await fetch(OCR_CONFIG.apiUrl, {
@@ -907,6 +743,8 @@ async function processReceiptWithOCR(file, options = {}) {
         if (result.OCRExitCode !== 1) {
             throw new Error(result.ErrorMessage || 'OCR processing failed');
         }
+
+        tesseractData = (result?.ParsedResults?.[0]?.TextOverlay) || null;
 
         // Extract text from result
         const ocrText = result.ParsedResults[0].ParsedText || '';
@@ -1307,6 +1145,32 @@ function resetReceiptForm() {
     } catch (e) { /* ignore */ }
 }
 
+// ===== App Bootstrap =====
+window.addEventListener('DOMContentLoaded', () => {
+    const safeRun = (label, fn) => {
+        try { fn(); } catch (e) { console.error(`${label} failed`, e); }
+    };
+
+    safeRun('navigation', setupNavigation);
+    safeRun('calculators', setupCalculators);
+    safeRun('receipt upload', setupReceiptUpload);
+
+    safeRun('invoice form', () => {
+        setTodayAsDefault();
+        loadCompanyInfo();
+        populateCustomerList();
+        setupQuickFill();
+        setupInvoiceForm();
+    });
+
+    safeRun('history', displayHistory);
+    safeRun('expenses setup', setupExpenses);
+    safeRun('expenses display', displayExpenses);
+    safeRun('dashboard setup', setupDashboard);
+    safeRun('dashboard update', updateDashboard);
+    safeRun('accessories setup', setupAccessories);
+});
+
 // ===== Export Functions =====
 
 // Expose functions used by inline handlers and Firebase callbacks
@@ -1322,4 +1186,3 @@ Object.assign(window, {
     exportExpenseReport,
     exportProfitLossStatement
 });
-
