@@ -1129,14 +1129,24 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Expose functions used by inline handlers and Firebase callbacks
 Object.assign(window, {
+    // Navigation
+    showView,
+    navigateTo,
+    // Invoice functions
     loadCompanyInfo,
     displayHistory,
-    displayExpenses,
-    updateDashboard,
     togglePaymentStatus,
     deleteInvoice,
     regenerateInvoice,
+    // Expense functions
+    displayExpenses,
     deleteExpense,
+    // Dashboard functions
+    updateDashboard,
     exportExpenseReport,
-    exportProfitLossStatement
+    exportProfitLossStatement,
+    // Accessories
+    setupAccessories,
+    // General
+    addAccessoryField
 });

@@ -51,10 +51,13 @@ window.navigateTo = function(view) {
         try {
             // Access the functions from the module context
             if (view === 'history' && typeof window.displayHistory === 'function') {
+                console.log('Calling displayHistory');
                 window.displayHistory();
             } else if (view === 'expenses' && typeof window.displayExpenses === 'function') {
+                console.log('Calling displayExpenses');
                 window.displayExpenses();
             } else if (view === 'dashboard' && typeof window.updateDashboard === 'function') {
+                console.log('Calling updateDashboard');
                 window.updateDashboard();
             }
         } catch (e) {
@@ -62,3 +65,6 @@ window.navigateTo = function(view) {
         }
     }, 100);
 };
+
+// Make showView available on window for module script
+window.showView = showView;
