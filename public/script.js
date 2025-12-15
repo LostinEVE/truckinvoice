@@ -1144,7 +1144,16 @@ Object.assign(window, {
     exportExpenseReport,
     exportProfitLossStatement,
     // Accessories
-    setupAccessories,
-    // General
-    addAccessoryField
+    setupAccessories
+});
+
+// DEBUG: Log which functions are exposed on window
+console.log('Functions exposed to window:', {
+    deleteInvoice: typeof window.deleteInvoice,
+    deleteExpense: typeof window.deleteExpense,
+    togglePaymentStatus: typeof window.togglePaymentStatus,
+    regenerateInvoice: typeof window.regenerateInvoice,
+    displayHistory: typeof window.displayHistory,
+    displayExpenses: typeof window.displayExpenses,
+    updateDashboard: typeof window.updateDashboard
 });
