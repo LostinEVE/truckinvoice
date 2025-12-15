@@ -1936,7 +1936,6 @@ function parseReceiptData(text) {
         date: date,
         category: category
     };
-}
 
 // Reset receipt form
 function resetReceiptForm() {
