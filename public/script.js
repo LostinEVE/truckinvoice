@@ -1205,7 +1205,42 @@ window.addEventListener('DOMContentLoaded', () => {
     safeRun('dashboard setup', setupDashboard);
     safeRun('dashboard update', updateDashboard);
     safeRun('accessories setup', setupAccessories);
+    
+    // Ensure navigation handlers are attached after all other setup
+    setTimeout(() => {
+        safeRun('attach nav handlers', attachNavHandlers);
+    }, 100);
 });
+
+// Fallback handler to ensure view switching works
+function attachNavHandlers() {
+    // Direct button click handlers
+    const buttons = document.querySelectorAll('[id$="Btn"]');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const btnId = btn.id;
+            let view = null;
+            if (btnId === 'newInvoiceBtn') view = 'invoice';
+            else if (btnId === 'receiptUploadBtn') view = 'receipt';
+            else if (btnId === 'historyBtn') view = 'history';
+            else if (btnId === 'expensesBtn') view = 'expenses';
+            else if (btnId === 'dashboardBtn') view = 'dashboard';
+            
+            if (view) {
+                e.preventDefault();
+                showView(view);
+            }
+        });
+    });
+    
+    // Dropdown handler
+    const dropdown = document.getElementById('navDropdown');
+    if (dropdown) {
+        dropdown.addEventListener('change', (e) => {
+            showView(e.target.value || 'invoice');
+        });
+    }
+}
 
 // ===== Export Functions =====
 
