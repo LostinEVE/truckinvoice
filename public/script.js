@@ -1272,6 +1272,203 @@ function setupReceiptUpload() {
         }
     });
 
+    // Initialize crop overlay when image is loaded
+    previewImage.addEventListener('load', () => {
+        const previewContainer = document.getElementById('previewContainer');
+        const cropOverlay = document.getElementById('cropOverlay');
+        
+        if (cropOverlay && previewContainer) {
+            // Get container dimensions for proper positioning
+            const containerRect = previewContainer.getBoundingClientRect();
+            const imgRect = previewImage.getBoundingClientRect();
+            
+            // Calculate relative position within container
+            const relativeLeft = imgRect.left - containerRect.left;
+            const relativeTop = imgRect.top - containerRect.top;
+            
+            // Show crop overlay with default 80% coverage of the image
+            const left = relativeLeft + imgRect.width * 0.1;
+            const top = relativeTop + imgRect.height * 0.1; 
+            const width = imgRect.width * 0.8;
+            const height = imgRect.height * 0.8;
+            
+            cropOverlay.style.display = 'block';
+            cropOverlay.style.left = `${left}px`;
+            cropOverlay.style.top = `${top}px`;
+            cropOverlay.style.width = `${width}px`;
+            cropOverlay.style.height = `${height}px`;
+            
+            // Add resize handles
+            cropOverlay.innerHTML = `
+                <div class="resize-handle handle-nw"></div>
+                <div class="resize-handle handle-n"></div>
+                <div class="resize-handle handle-ne"></div>
+                <div class="resize-handle handle-e"></div>
+                <div class="resize-handle handle-se"></div>
+                <div class="resize-handle handle-s"></div>
+                <div class="resize-handle handle-sw"></div>
+                <div class="resize-handle handle-w"></div>
+            `;
+            
+            // Store crop rectangle data
+            window.cropRect = { 
+                left, 
+                top, 
+                width, 
+                height, 
+                imgLeft: relativeLeft,
+                imgTop: relativeTop,
+                imgWidth: imgRect.width,
+                imgHeight: imgRect.height,
+                containerRect 
+            };
+            
+            console.log('Crop overlay initialized:', window.cropRect);
+        }
+    });
+
+    // Enhanced crop functionality with resize handles
+    const cropOverlay = document.getElementById('cropOverlay');
+    if (cropOverlay) {
+        let isDragging = false;
+        let isResizing = false;
+        let resizeDirection = '';
+        let dragOffset = { x: 0, y: 0 };
+
+        // Handle mouse down on crop overlay or handles
+        cropOverlay.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                resizeDirection = e.target.className.split(' ').find(c => c.startsWith('handle-')).replace('handle-', '');
+                console.log('Started resizing:', resizeDirection);
+            } else {
+                isDragging = true;
+                const rect = cropOverlay.getBoundingClientRect();
+                const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
+                dragOffset.x = e.clientX - rect.left;
+                dragOffset.y = e.clientY - rect.top;
+                console.log('Started dragging');
+            }
+        });
+
+        // Handle mouse move for drag and resize
+        document.addEventListener('mousemove', (e) => {
+            if (!window.cropRect) return;
+            
+            const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
+            const relativeX = e.clientX - containerRect.left;
+            const relativeY = e.clientY - containerRect.top;
+            
+            if (isDragging) {
+                const newLeft = Math.max(
+                    window.cropRect.imgLeft, 
+                    Math.min(
+                        window.cropRect.imgLeft + window.cropRect.imgWidth - window.cropRect.width,
+                        relativeX - dragOffset.x
+                    )
+                );
+                const newTop = Math.max(
+                    window.cropRect.imgTop,
+                    Math.min(
+                        window.cropRect.imgTop + window.cropRect.imgHeight - window.cropRect.height,
+                        relativeY - dragOffset.y
+                    )
+                );
+                
+                cropOverlay.style.left = `${newLeft}px`;
+                cropOverlay.style.top = `${newTop}px`;
+                
+                window.cropRect.left = newLeft;
+                window.cropRect.top = newTop;
+            } else if (isResizing) {
+                let newLeft = window.cropRect.left;
+                let newTop = window.cropRect.top;
+                let newWidth = window.cropRect.width;
+                let newHeight = window.cropRect.height;
+                
+                const minSize = 20;
+                const maxRight = window.cropRect.imgLeft + window.cropRect.imgWidth;
+                const maxBottom = window.cropRect.imgTop + window.cropRect.imgHeight;
+                
+                // Handle different resize directions
+                if (resizeDirection.includes('e')) {
+                    newWidth = Math.max(minSize, Math.min(maxRight - newLeft, relativeX - newLeft));
+                }
+                if (resizeDirection.includes('s')) {
+                    newHeight = Math.max(minSize, Math.min(maxBottom - newTop, relativeY - newTop));
+                }
+                if (resizeDirection.includes('w')) {
+                    const newLeftPos = Math.max(window.cropRect.imgLeft, Math.min(newLeft + newWidth - minSize, relativeX));
+                    newWidth = newLeft + newWidth - newLeftPos;
+                    newLeft = newLeftPos;
+                }
+                if (resizeDirection.includes('n')) {
+                    const newTopPos = Math.max(window.cropRect.imgTop, Math.min(newTop + newHeight - minSize, relativeY));
+                    newHeight = newTop + newHeight - newTopPos;
+                    newTop = newTopPos;
+                }
+                
+                cropOverlay.style.left = `${newLeft}px`;
+                cropOverlay.style.top = `${newTop}px`;
+                cropOverlay.style.width = `${newWidth}px`;
+                cropOverlay.style.height = `${newHeight}px`;
+                
+                window.cropRect.left = newLeft;
+                window.cropRect.top = newTop;
+                window.cropRect.width = newWidth;
+                window.cropRect.height = newHeight;
+            }
+        });
+
+        // Handle mouse up
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                console.log('Finished dragging');
+            }
+            if (isResizing) {
+                console.log('Finished resizing');
+            }
+            isDragging = false;
+            isResizing = false;
+            resizeDirection = '';
+        });
+
+        // Add touch support for mobile
+        cropOverlay.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                target: e.target
+            });
+            cropOverlay.dispatchEvent(mouseEvent);
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging || isResizing) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                document.dispatchEvent(mouseEvent);
+            }
+        });
+
+        document.addEventListener('touchend', (e) => {
+            if (isDragging || isResizing) {
+                e.preventDefault();
+                const mouseEvent = new MouseEvent('mouseup', {});
+                document.dispatchEvent(mouseEvent);
+            }
+        });
+    }
+
     // Handle receipt processing
     receiptForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -1342,6 +1539,17 @@ async function processReceiptWithOCR(file) {
     ocrMessage.textContent = 'Processing receipt with OCR... This may take a moment.';
 
     try {
+        // Apply crop if crop area is defined
+        let processedFile = file;
+        if (window.cropRect) {
+            try {
+                processedFile = await applyCrop(file);
+                console.log('Applied crop to image before OCR');
+            } catch (cropError) {
+                console.warn('Crop failed, using original image:', cropError);
+            }
+        }
+
         // Read file as data URL
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -1380,11 +1588,82 @@ async function processReceiptWithOCR(file) {
                 ocrMessage.textContent = 'Error processing image. Please try again with a clearer photo.';
             }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(processedFile);
     } catch (error) {
         console.error('File reading error:', error);
         alert('Error reading file. Please try again.');
     }
+}
+
+// Apply crop to an image file based on current crop selection
+async function applyCrop(file) {
+    return new Promise((resolve, reject) => {
+        if (!window.cropRect) {
+            resolve(file);
+            return;
+        }
+
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Calculate crop coordinates relative to original image dimensions
+                const scaleX = img.naturalWidth / window.cropRect.imgWidth;
+                const scaleY = img.naturalHeight / window.cropRect.imgHeight;
+                
+                // Convert crop overlay position to image-relative coordinates
+                const cropX = (window.cropRect.left - window.cropRect.imgLeft) * scaleX;
+                const cropY = (window.cropRect.top - window.cropRect.imgTop) * scaleY;
+                const cropW = window.cropRect.width * scaleX;
+                const cropH = window.cropRect.height * scaleY;
+                
+                // Ensure crop coordinates are within image bounds
+                const finalX = Math.max(0, Math.min(img.naturalWidth - 1, cropX));
+                const finalY = Math.max(0, Math.min(img.naturalHeight - 1, cropY));
+                const finalW = Math.max(1, Math.min(img.naturalWidth - finalX, cropW));
+                const finalH = Math.max(1, Math.min(img.naturalHeight - finalY, cropH));
+                
+                console.log('Crop parameters:', { 
+                    original: { w: img.naturalWidth, h: img.naturalHeight },
+                    crop: { x: finalX, y: finalY, w: finalW, h: finalH },
+                    scale: { x: scaleX, y: scaleY }
+                });
+                
+                // Set canvas to cropped size
+                canvas.width = finalW;
+                canvas.height = finalH;
+                
+                // Draw cropped portion
+                ctx.drawImage(img, finalX, finalY, finalW, finalH, 0, 0, finalW, finalH);
+                
+                // Convert to blob and create new file
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const croppedFile = new File([blob], 'cropped_' + file.name, { type: 'image/jpeg' });
+                        console.log('Created cropped file:', croppedFile.size, 'bytes');
+                        resolve(croppedFile);
+                    } else {
+                        reject(new Error('Failed to create cropped image'));
+                    }
+                }, 'image/jpeg', 0.9);
+            } catch (err) {
+                reject(err);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        };
+        
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image'));
+        };
+        
+        img.src = url;
+    });
 }
 
 // Parse receipt data from OCR text
