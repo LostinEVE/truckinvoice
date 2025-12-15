@@ -1442,16 +1442,102 @@ function setupReceiptUpload() {
             resizeDirection = '';
         });
 
-        // Add touch support for mobile
+        // Add comprehensive touch support for mobile
         cropOverlay.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousedown', {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                target: e.target
-            });
-            cropOverlay.dispatchEvent(mouseEvent);
+            
+            console.log('Touch start on:', e.target.className);
+            
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                resizeDirection = e.target.className.split(' ').find(c => c.startsWith('handle-')).replace('handle-', '');
+                console.log('Started touch resizing:', resizeDirection);
+            } else {
+                isDragging = true;
+                console.log('Started touch dragging');
+                const rect = cropOverlay.getBoundingClientRect();
+                const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
+                dragOffset = {
+                    x: touch.clientX - rect.left,
+                    y: touch.clientY - rect.top
+                };
+            }
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging && !isResizing) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
+            const relativeX = touch.clientX - containerRect.left;
+            const relativeY = touch.clientY - containerRect.top;
+
+            if (isDragging) {
+                // Handle touch drag
+                let newLeft = relativeX - dragOffset.x;
+                let newTop = relativeY - dragOffset.y;
+                
+                // Constrain to image bounds
+                newLeft = Math.max(window.cropRect.imgLeft, Math.min(window.cropRect.imgLeft + window.cropRect.imgWidth - window.cropRect.width, newLeft));
+                newTop = Math.max(window.cropRect.imgTop, Math.min(window.cropRect.imgTop + window.cropRect.imgHeight - window.cropRect.height, newTop));
+                
+                cropOverlay.style.left = `${newLeft}px`;
+                cropOverlay.style.top = `${newTop}px`;
+                
+                window.cropRect.left = newLeft;
+                window.cropRect.top = newTop;
+            } else if (isResizing) {
+                // Handle touch resize - same logic as mouse resize
+                let newLeft = window.cropRect.left;
+                let newTop = window.cropRect.top;
+                let newWidth = window.cropRect.width;
+                let newHeight = window.cropRect.height;
+                
+                const minSize = 30; // Larger for touch
+                const maxRight = window.cropRect.imgLeft + window.cropRect.imgWidth;
+                const maxBottom = window.cropRect.imgTop + window.cropRect.imgHeight;
+                
+                if (resizeDirection.includes('e')) {
+                    newWidth = Math.max(minSize, Math.min(maxRight - newLeft, relativeX - newLeft));
+                }
+                if (resizeDirection.includes('s')) {
+                    newHeight = Math.max(minSize, Math.min(maxBottom - newTop, relativeY - newTop));
+                }
+                if (resizeDirection.includes('w')) {
+                    const newLeftPos = Math.max(window.cropRect.imgLeft, Math.min(newLeft + newWidth - minSize, relativeX));
+                    newWidth = newLeft + newWidth - newLeftPos;
+                    newLeft = newLeftPos;
+                }
+                if (resizeDirection.includes('n')) {
+                    const newTopPos = Math.max(window.cropRect.imgTop, Math.min(newTop + newHeight - minSize, relativeY));
+                    newHeight = newTop + newHeight - newTopPos;
+                    newTop = newTopPos;
+                }
+                
+                cropOverlay.style.left = `${newLeft}px`;
+                cropOverlay.style.top = `${newTop}px`;
+                cropOverlay.style.width = `${newWidth}px`;
+                cropOverlay.style.height = `${newHeight}px`;
+                
+                window.cropRect.left = newLeft;
+                window.cropRect.top = newTop;
+                window.cropRect.width = newWidth;
+                window.cropRect.height = newHeight;
+            }
+        });
+
+        document.addEventListener('touchend', () => {
+            if (isDragging) {
+                console.log('Finished touch dragging');
+            }
+            if (isResizing) {
+                console.log('Finished touch resizing');
+            }
+            isDragging = false;
+            isResizing = false;
+            resizeDirection = '';
         });
 
         document.addEventListener('touchmove', (e) => {

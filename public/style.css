@@ -36,19 +36,21 @@
 }
 .resize-handle {
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 20px;  /* Larger for touch */
+    height: 20px; /* Larger for touch */
     background: #0b79d0;
-    border-radius: 2px;
+    border: 2px solid white;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
-.handle-nw { left: -6px; top: -6px; cursor: nwse-resize; }
-.handle-n { left: calc(50% - 6px); top: -6px; cursor: ns-resize; }
-.handle-ne { right: -6px; top: -6px; cursor: nesw-resize; }
-.handle-e { right: -6px; top: calc(50% - 6px); cursor: ew-resize; }
-.handle-se { right: -6px; bottom: -6px; cursor: nwse-resize; }
-.handle-s { left: calc(50% - 6px); bottom: -6px; cursor: ns-resize; }
-.handle-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
-.handle-w { left: -6px; top: calc(50% - 6px); cursor: ew-resize; }
+.handle-nw { left: -10px; top: -10px; cursor: nwse-resize; }
+.handle-n { left: calc(50% - 10px); top: -10px; cursor: ns-resize; }
+.handle-ne { right: -10px; top: -10px; cursor: nesw-resize; }
+.handle-e { right: -10px; top: calc(50% - 10px); cursor: ew-resize; }
+.handle-se { right: -10px; bottom: -10px; cursor: nwse-resize; }
+.handle-s { left: calc(50% - 10px); bottom: -10px; cursor: ns-resize; }
+.handle-sw { left: -10px; bottom: -10px; cursor: nesw-resize; }
+.handle-w { left: -10px; top: calc(50% - 10px); cursor: ew-resize; }
 * {
     margin: 0;
     padding: 0;
