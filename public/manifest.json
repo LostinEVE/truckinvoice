@@ -1,7 +1,7 @@
 {
   "name": "TruckInvoice Generator",
   "short_name": "TruckInvoice",
-  "description": "Generate J.B. Hunt invoices quickly",
+  "description": "Generate professional trucking invoices quickly and easily.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",

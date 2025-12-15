@@ -1,4 +1,4 @@
-import { EMAILJS_CONFIG } from './config.js';
+import { EMAILJS_CONFIG, OCR_CONFIG, FEATURES } from './config.js';
 import {
     setupInvoiceForm,
     setTodayAsDefault,
@@ -617,98 +617,115 @@ function setupReceiptUpload() {
     }
 }
 
-// Process receipt image (OCR disabled; manual entry only)
+// Process receipt image with OCR.space API
 async function processReceiptWithOCR(file, options = {}) {
     const ocrStatus = document.getElementById('ocrStatus');
     const ocrResults = document.getElementById('ocrResults');
     const ocrMessage = document.getElementById('ocrMessage');
     const processBtn = document.getElementById('processReceiptBtn');
 
+    if (!FEATURES.OCR_ENABLED) {
+        ocrMessage.textContent = 'OCR disabled. Please enter receipt details manually.';
+        ocrStatus.classList.add('hidden');
+        ocrResults.classList.remove('hidden');
+        return;
+    }
+
     ocrStatus.classList.remove('hidden');
     ocrResults.classList.add('hidden');
     processBtn.classList.add('hidden');
-    ocrMessage.textContent = 'OCR disabled. Please enter receipt details manually.';
-
-    const parsedData = {
-        vendor: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        category: 'other',
-        items: []
-    };
+    ocrMessage.textContent = 'Processing receipt with OCR...';
 
     try {
-        const rawEl = document.getElementById('rawOcrText');
-        if (rawEl) rawEl.value = 'OCR disabled. Enter details manually or paste text here.';
-        const tessJsonEl = document.getElementById('rawTessJson');
-        if (tessJsonEl) tessJsonEl.value = '';
-        window._lastTessRaw = null;
-    } catch (e) { /* ignore */ }
+        // Prepare form data for OCR.space API
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('language', OCR_CONFIG.language);
+        formData.append('detectOrientation', OCR_CONFIG.detectOrientation);
+        formData.append('scale', OCR_CONFIG.scale);
+        formData.append('OCREngine', '2'); // Engine 2 is better for receipts
 
-    document.getElementById('extractedVendor').value = parsedData.vendor;
-    document.getElementById('extractedAmount').value = parsedData.amount;
-    document.getElementById('extractedDate').value = parsedData.date;
-    document.getElementById('extractedCategory').value = parsedData.category;
+        // Call OCR.space API
+        const response = await fetch(OCR_CONFIG.apiUrl, {
+            method: 'POST',
+            headers: {
+                'apikey': OCR_CONFIG.apiKey
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`OCR API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.OCRExitCode !== 1) {
+            throw new Error(result.ErrorMessage || 'OCR processing failed');
+        }
+
+        // Extract text from result
+        const ocrText = result.ParsedResults[0].ParsedText || '';
+        const rawEl = document.getElementById('rawOcrText');
+        if (rawEl) rawEl.value = ocrText;
+
+        // Store raw result for debugging
+        const tessJsonEl = document.getElementById('rawTessJson');
+        if (tessJsonEl) tessJsonEl.value = JSON.stringify(result, null, 2);
+        window._lastOcrRaw = result;
+
+        console.log('OCR Result:', ocrText);
+
+        // Parse the OCR text to extract receipt data
+        const parsedData = parseReceiptData(ocrText);
+
+        // Populate form fields
+        document.getElementById('extractedVendor').value = parsedData.vendor;
+        document.getElementById('extractedAmount').value = parsedData.amount;
+        document.getElementById('extractedDate').value = parsedData.date;
+        document.getElementById('extractedCategory').value = parsedData.category;
+
+        ocrMessage.textContent = 'OCR complete! Review and edit the extracted data below.';
+
+    } catch (error) {
+        console.error('OCR Error:', error);
+        ocrMessage.textContent = `OCR failed: ${error.message}. Please enter details manually.`;
+        
+        // Provide empty fields for manual entry
+        const rawEl = document.getElementById('rawOcrText');
+        if (rawEl) rawEl.value = `OCR Error: ${error.message}\n\nEnter details manually or paste text here.`;
+        
+        document.getElementById('extractedVendor').value = '';
+        document.getElementById('extractedAmount').value = '';
+        document.getElementById('extractedDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('extractedCategory').value = 'other';
+    }
 
     ocrStatus.classList.add('hidden');
     ocrResults.classList.remove('hidden');
 }
 
 // Parse receipt data from OCR text
-function parseReceiptData(text, tesseractData = null, canvas = null) {
+function parseReceiptData(text) {
     // Default values
     let vendor = 'Unknown Vendor';
     let amount = '0.00';
     let date = new Date().toISOString().split('T')[0];
     let category = 'other';
 
+    if (!text || text.trim().length === 0) {
+        return { vendor, amount, date, category };
+    }
+
     // Convert text to uppercase for easier matching
     const upperText = text.toUpperCase();
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
 
-    try {
-        console.log('OCR Extracted Text:', text);
-        console.log('Lines:', Array.isArray(lines) ? JSON.stringify(lines.slice(0, 50)) : lines);
-    } catch (_) {}
+    console.log('Parsing OCR text:', text.substring(0, 200));
 
-    // If tesseract provided word-level data, try to pick a vendor line by confidence and position
+    // Get vendor from top lines
     let vendorCandidates = lines.slice(0, Math.min(8, lines.length));
-    if (tesseractData && tesseractData.words && canvas) {
-        try {
-            const words = tesseractData.words;
-            // Group words into lines using line_num and paragraph/block info
-            const lineMap = new Map();
-            for (const w of words) {
-                const key = `${w.block_num || 0}_${w.par_num || 0}_${w.line_num || 0}`;
-                if (!lineMap.has(key)) lineMap.set(key, []);
-                lineMap.get(key).push(w);
-            }
-
-            const linesFromWords = [];
-            for (const [k, ws] of lineMap.entries()) {
-                const txt = ws.map(w => w.text).join(' ').trim();
-                if (!txt) continue;
-                const avgConf = ws.reduce((s, w) => s + (w.confidence || 0), 0) / ws.length;
-                const avgY = ws.reduce((s, w) => s + (w.bbox ? (w.bbox.y0 || 0) : (w.y0 || 0)), 0) / ws.length;
-                linesFromWords.push({ text: txt, avgConf, avgY });
-            }
-
-            // Prefer lines in the top 30% with highest confidence
-            const topRegion = (canvas && canvas.height) ? canvas.height * 0.3 : Infinity;
-            const topLines = linesFromWords.filter(l => l.avgY <= topRegion && /[A-Za-z]{2,}/.test(l.text));
-            topLines.sort((a, b) => b.avgConf - a.avgConf);
-            if (topLines.length > 0) {
-                // Use the topmost high-confidence line as the vendor
-                vendor = sanitizeVendorLine(topLines[0].text);
-            }
-            // If we found a vendor via words, set vendorCandidates to that for fallback consistency
-            if (vendor !== 'Unknown Vendor') {
-                vendorCandidates = [vendor];
-            }
-        } catch (e) {
-            console.warn('Vendor extraction from words failed', e);
-        }
-    }
+    
     // If we see clear merchant names in the whole text, prefer them
     const vendorWhitelist = ['RURAL KING', 'WALMART', 'TARGET', 'HOME DEPOT', 'LOWE', 'KROGER', 'HEB', 'COSTCO', 'SAM\'S CLUB'];
     for (const v of vendorWhitelist) {

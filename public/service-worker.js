@@ -1,8 +1,9 @@
-const CACHE_NAME = 'truckinvoice-v11-sync';
+const CACHE_NAME = 'truckinvoice-v12-ocr';
 const urlsToCache = [
   './index.html',
   './style.css',
   './script.js',
+  './config.js',
   './expenses.js',
   './dashboard.js',
   './invoices.js',
