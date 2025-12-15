@@ -65,56 +65,28 @@ function showView(view) {
     }
 }
 
-function setupNavigation() {
-    const dropdown = document.getElementById('navDropdown');
-    
-    const handleViewChange = (view) => {
-        showView(view);
-        // Refresh specific view data when switching
-        setTimeout(() => {
-            try {
-                if (view === 'history') {
-                    displayHistory();
-                } else if (view === 'expenses') {
-                    displayExpenses();
-                } else if (view === 'dashboard') {
-                    updateDashboard();
-                }
-            } catch (e) {
-                console.error(`Error refreshing view ${view}:`, e);
+// Global navigation function for onclick handlers
+window.navigateTo = function(view) {
+    showView(view);
+    // Refresh specific view data when switching
+    setTimeout(() => {
+        try {
+            if (view === 'history') {
+                displayHistory();
+            } else if (view === 'expenses') {
+                displayExpenses();
+            } else if (view === 'dashboard') {
+                updateDashboard();
             }
-        }, 100);
-    };
-    
-    if (dropdown) {
-        // Listen to both 'change' and 'input' for better mobile support
-        const handler = (e) => {
-            const view = e.target.value || 'invoice';
-            handleViewChange(view);
-        };
-        dropdown.addEventListener('change', handler);
-        dropdown.addEventListener('input', handler);
-    }
-
-    const bindings = [
-        { id: 'newInvoiceBtn', view: 'invoice' },
-        { id: 'receiptUploadBtn', view: 'receipt' },
-        { id: 'historyBtn', view: 'history' },
-        { id: 'expensesBtn', view: 'expenses' },
-        { id: 'dashboardBtn', view: 'dashboard' }
-    ];
-
-    bindings.forEach(({ id, view }) => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleViewChange(view);
-            });
+        } catch (e) {
+            console.error(`Error refreshing view ${view}:`, e);
         }
-    });
+    }, 100);
+};
 
-    // Show invoice view by default
+function setupNavigation() {
+    // Navigation is now handled via onclick in HTML
+    // Just initialize the default view
     showView('invoice');
 }
 
@@ -1205,42 +1177,7 @@ window.addEventListener('DOMContentLoaded', () => {
     safeRun('dashboard setup', setupDashboard);
     safeRun('dashboard update', updateDashboard);
     safeRun('accessories setup', setupAccessories);
-    
-    // Ensure navigation handlers are attached after all other setup
-    setTimeout(() => {
-        safeRun('attach nav handlers', attachNavHandlers);
-    }, 100);
 });
-
-// Fallback handler to ensure view switching works
-function attachNavHandlers() {
-    // Direct button click handlers
-    const buttons = document.querySelectorAll('[id$="Btn"]');
-    buttons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const btnId = btn.id;
-            let view = null;
-            if (btnId === 'newInvoiceBtn') view = 'invoice';
-            else if (btnId === 'receiptUploadBtn') view = 'receipt';
-            else if (btnId === 'historyBtn') view = 'history';
-            else if (btnId === 'expensesBtn') view = 'expenses';
-            else if (btnId === 'dashboardBtn') view = 'dashboard';
-            
-            if (view) {
-                e.preventDefault();
-                showView(view);
-            }
-        });
-    });
-    
-    // Dropdown handler
-    const dropdown = document.getElementById('navDropdown');
-    if (dropdown) {
-        dropdown.addEventListener('change', (e) => {
-            showView(e.target.value || 'invoice');
-        });
-    }
-}
 
 // ===== Export Functions =====
 
