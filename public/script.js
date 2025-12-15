@@ -1129,9 +1129,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Expose functions used by inline handlers and Firebase callbacks
 Object.assign(window, {
-    // Navigation
-    showView,
-    navigateTo,
+    // Navigation - showView and navigateTo are defined in nav.js (non-module script)
     // Invoice functions
     loadCompanyInfo,
     displayHistory,
