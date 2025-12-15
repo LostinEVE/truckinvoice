@@ -1246,15 +1246,36 @@ function setupReceiptUpload() {
     const addAsExpenseBtn = document.getElementById('addAsExpenseBtn');
     const useInInvoiceBtn = document.getElementById('useInInvoiceBtn');
     const fileInputLabel = document.querySelector('.file-input-label');
+    
+    console.log('Setting up receipt upload - elements found:', {
+        receiptInput: !!receiptInput,
+        receiptForm: !!receiptForm,
+        previewImage: !!previewImage,
+        receiptPreview: !!receiptPreview,
+        processBtn: !!processBtn,
+        addAsExpenseBtn: !!addAsExpenseBtn,
+        useInInvoiceBtn: !!useInInvoiceBtn,
+        fileInputLabel: !!fileInputLabel
+    });
+    
+    if (!fileInputLabel || !receiptInput) {
+        console.error('Receipt upload setup failed: missing elements', {
+            fileInputLabel: !!fileInputLabel,
+            receiptInput: !!receiptInput
+        });
+        return;
+    }
 
     // Make the file input label clickable and enable camera on mobile
     fileInputLabel.addEventListener('click', () => {
+        console.log('File input label clicked');
         // Check if on mobile and support camera capture
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (isMobile) {
             // Set to camera capture mode
             receiptInput.setAttribute('capture', 'environment');
         }
+        console.log('Triggering receiptInput.click()');
         receiptInput.click();
     });
 
