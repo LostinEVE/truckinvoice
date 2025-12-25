@@ -30,6 +30,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setupExpenses();
     setupDashboard();
     setupAccessories();
+    setupTipJar();
 });
 
 // Set today's date as default
@@ -3360,6 +3361,26 @@ function deleteReminder(id) {
 
     displayReminders();
     showToast('Reminder deleted');
+}
+
+// =====================================
+// TIP JAR
+// =====================================
+
+function setupTipJar() {
+    const toggleBtn = document.getElementById('tipJarToggle');
+    const content = document.getElementById('tipJarContent');
+
+    if (toggleBtn && content) {
+        toggleBtn.addEventListener('click', () => {
+            content.classList.toggle('hidden');
+
+            // Scroll into view when opened
+            if (!content.classList.contains('hidden')) {
+                content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+    }
 }
 
 // Make functions globally accessible for onclick handlers
