@@ -293,3 +293,6 @@ function handleEditExpense(event) {
         document.getElementById('expenseForm').scrollIntoView({ behavior: 'smooth' });
     }
 }
+
+// Expose displayExpenses globally for Force Sync
+window.displayExpenses = displayExpenses;

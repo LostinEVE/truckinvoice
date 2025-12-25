@@ -3158,3 +3158,7 @@ window.closeReceiptModal = closeReceiptModal;
 // Driver tools
 window.setupDriverTools = setupDriverTools;
 
+// Expose display functions for Force Sync
+window.displayHistory = displayHistory;
+window.loadCompanyInfo = loadCompanyInfo;
+

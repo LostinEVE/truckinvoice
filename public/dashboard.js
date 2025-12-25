@@ -82,7 +82,7 @@ export function getDateRange(period, year) {
     const now = new Date();
     let start, end;
 
-    switch(period) {
+    switch (period) {
         case 'weekly': {
             const dayOfWeek = now.getDay();
             const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -387,3 +387,6 @@ export function exportProfitLossStatement() {
     doc.save(`Profit_Loss_Statement_${periodLabel.replace(/\s+/g, '_')}_${selectedYear}.pdf`);
     alert('Profit & Loss statement exported successfully!');
 }
+
+// Expose updateDashboard globally for Force Sync
+window.updateDashboard = updateDashboard;

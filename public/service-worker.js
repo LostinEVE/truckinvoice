@@ -1,4 +1,4 @@
-const CACHE_NAME = 'truckinvoice-v24-truck-modal-fix';
+const CACHE_NAME = 'truckinvoice-v25-expose-functions';
 const urlsToCache = [
   './index.html',
   './style.css',
