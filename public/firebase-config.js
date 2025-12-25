@@ -203,6 +203,12 @@ function syncInvoices(userId) {
 
     // Listen for remote changes
     invoicesRef.on('value', (snapshot) => {
+        // Skip sync if we're in the middle of updating payment status locally
+        if (window.isUpdatingPaymentStatus) {
+            console.log('Skipping sync - payment status update in progress');
+            return;
+        }
+
         const data = snapshot.val();
         if (data) {
             // Convert object to array
@@ -235,11 +241,18 @@ function syncInvoices(userId) {
                     const localUpdateTime = new Date(localInv.paymentStatusUpdated || localInv.timestamp || 0).getTime();
                     const remoteUpdateTime = new Date(remoteInv.paymentStatusUpdated || remoteInv.timestamp || 0).getTime();
 
+                    console.log('Payment status conflict for invoice', id,
+                        'local:', localInv.paymentStatus, localUpdateTime,
+                        'remote:', remoteInv.paymentStatus, remoteUpdateTime);
+
                     if (localUpdateTime > remoteUpdateTime) {
                         // Local is newer - keep local and push to cloud
+                        console.log('Keeping local version (newer)');
                         mergedMap.set(id, localInv);
                         // Re-sync this invoice to cloud
                         saveInvoiceToCloud(localInv);
+                    } else {
+                        console.log('Keeping remote version (newer)');
                     }
                 }
             }

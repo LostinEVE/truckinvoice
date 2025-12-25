@@ -586,13 +586,19 @@ function deleteInvoice(id) {
 }
 
 function togglePaymentStatus(id, isPaid) {
+    console.log('togglePaymentStatus called:', id, isPaid);
+
+    // Set a flag to prevent Firebase sync from overwriting during this update
+    window.isUpdatingPaymentStatus = true;
+
     let invoices = getInvoiceHistory();
     const invoice = invoices.find(inv => inv.id === id);
     if (invoice) {
         invoice.paymentStatus = isPaid ? 'paid' : 'unpaid';
         invoice.paymentStatusUpdated = new Date().toISOString(); // Track when payment status changed
+
+        console.log('Saving invoice with payment status:', invoice.paymentStatus);
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
-        displayHistory();
 
         // Sync to cloud if enabled
         if (typeof saveInvoiceToCloud === 'function') {
@@ -604,6 +610,15 @@ function togglePaymentStatus(id, isPaid) {
             ? `Invoice #${invoice.invoiceNumber} marked as PAID ✓`
             : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
         showPaymentToast(message, isPaid);
+
+        // Clear the flag after a short delay to allow Firebase to sync
+        setTimeout(() => {
+            window.isUpdatingPaymentStatus = false;
+            console.log('Payment status update complete');
+        }, 2000);
+    } else {
+        window.isUpdatingPaymentStatus = false;
+        console.error('Invoice not found:', id);
     }
 }
 
