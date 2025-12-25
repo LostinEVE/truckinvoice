@@ -405,19 +405,21 @@ function setupNavigation() {
     const receiptUploadBtn = document.getElementById('receiptUploadBtn');
     const historyBtn = document.getElementById('historyBtn');
     const expensesBtn = document.getElementById('expensesBtn');
+    const toolsBtn = document.getElementById('toolsBtn');
     const dashboardBtn = document.getElementById('dashboardBtn');
 
     const invoiceFormView = document.getElementById('invoiceFormView');
     const receiptUploadView = document.getElementById('receiptUploadView');
     const historyView = document.getElementById('historyView');
     const expensesView = document.getElementById('expensesView');
+    const toolsView = document.getElementById('toolsView');
     const dashboardView = document.getElementById('dashboardView');
 
     const searchInput = document.getElementById('searchHistory');
     const navDropdown = document.getElementById('navDropdown');
 
-    const allButtons = [newInvoiceBtn, receiptUploadBtn, historyBtn, expensesBtn, dashboardBtn];
-    const allViews = [invoiceFormView, receiptUploadView, historyView, expensesView, dashboardView];
+    const allButtons = [newInvoiceBtn, receiptUploadBtn, historyBtn, expensesBtn, toolsBtn, dashboardBtn];
+    const allViews = [invoiceFormView, receiptUploadView, historyView, expensesView, toolsView, dashboardView];
 
     function switchView(activeView, activeBtn) {
         console.log('Switching to view:', activeView.id);
@@ -451,6 +453,10 @@ function setupNavigation() {
                     switchView(expensesView, expensesBtn);
                     displayExpenses();
                     break;
+                case 'tools':
+                    switchView(toolsView, toolsBtn);
+                    setupDriverTools();
+                    break;
                 case 'dashboard':
                     switchView(dashboardView, dashboardBtn);
                     updateDashboard();
@@ -480,6 +486,12 @@ function setupNavigation() {
         switchView(expensesView, expensesBtn);
         displayExpenses();
         if (navDropdown) navDropdown.value = 'expenses';
+    });
+
+    toolsBtn.addEventListener('click', () => {
+        switchView(toolsView, toolsBtn);
+        setupDriverTools();
+        if (navDropdown) navDropdown.value = 'tools';
     });
 
     dashboardBtn.addEventListener('click', () => {
@@ -2547,4 +2559,811 @@ function exportProfitLossStatement() {
     doc.save(`Profit_Loss_Statement_${periodLabel.replace(/\s+/g, '_')}_${selectedYear}.pdf`);
     alert('Profit & Loss statement exported successfully!');
 }
+
+// =====================================
+// DRIVER TOOLS SECTION
+// =====================================
+
+let driverToolsInitialized = false;
+
+function setupDriverTools() {
+    if (driverToolsInitialized) {
+        // Just refresh displays when switching to tools view
+        displayFuelLog();
+        displayPerDiemLog();
+        displayReminders();
+        updatePerDiemYTD();
+        return;
+    }
+
+    driverToolsInitialized = true;
+
+    // Tool tab switching
+    const toolTabs = document.querySelectorAll('.tool-tab');
+    const toolPanels = document.querySelectorAll('.tool-panel');
+
+    toolTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTool = tab.dataset.tool;
+
+            // Update tabs
+            toolTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Update panels
+            toolPanels.forEach(panel => {
+                panel.classList.remove('active');
+                if (panel.id === targetTool + 'Tool') {
+                    panel.classList.add('active');
+                }
+            });
+        });
+    });
+
+    // Set today's date as default
+    const today = new Date().toISOString().split('T')[0];
+    const fuelDateInput = document.getElementById('fuelDate');
+    if (fuelDateInput) fuelDateInput.value = today;
+
+    // Fuel log form handlers
+    setupFuelLogHandlers();
+
+    // Rate check handlers
+    setupRateCheckHandlers();
+
+    // Per diem handlers
+    setupPerDiemHandlers();
+
+    // CPM calculator handlers
+    setupCpmCalculatorHandlers();
+
+    // Service reminders handlers
+    setupRemindersHandlers();
+
+    // Initial displays
+    displayFuelLog();
+    displayPerDiemLog();
+    displayReminders();
+    updatePerDiemYTD();
+
+    // Load saved minimum CPM
+    const savedMinCpm = localStorage.getItem('truck_minCpm');
+    if (savedMinCpm) {
+        document.getElementById('rateCheckMinCpm').value = savedMinCpm;
+    }
+
+    // Load saved per diem rate
+    const savedPerDiemRate = localStorage.getItem('truck_perDiemRate');
+    if (savedPerDiemRate) {
+        document.getElementById('perDiemRate').value = savedPerDiemRate;
+    }
+}
+
+// =====================================
+// FUEL LOG FUNCTIONS
+// =====================================
+
+function setupFuelLogHandlers() {
+    const fuelForm = document.getElementById('fuelLogForm');
+    const gallonsInput = document.getElementById('fuelGallons');
+    const priceInput = document.getElementById('fuelPricePerGallon');
+    const totalInput = document.getElementById('fuelTotalCost');
+    const autoLocationBtn = document.getElementById('autoLocationBtn');
+
+    // Auto-calculate total cost
+    function calculateTotal() {
+        const gallons = parseFloat(gallonsInput.value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const total = gallons * price;
+        totalInput.value = total > 0 ? total.toFixed(2) : '';
+    }
+
+    gallonsInput.addEventListener('input', calculateTotal);
+    priceInput.addEventListener('input', calculateTotal);
+
+    // Auto-location button
+    autoLocationBtn.addEventListener('click', getAutoLocation);
+
+    // Form submission
+    fuelForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveFuelEntry();
+    });
+}
+
+function getAutoLocation() {
+    const locationInput = document.getElementById('fuelLocation');
+    const locationStatus = document.getElementById('locationStatus');
+    const autoBtn = document.getElementById('autoLocationBtn');
+
+    if (!navigator.geolocation) {
+        showLocationStatus('Geolocation not supported by your browser', 'error');
+        return;
+    }
+
+    autoBtn.disabled = true;
+    autoBtn.textContent = '⏳';
+    showLocationStatus('Getting location...', 'loading');
+
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const { latitude, longitude } = position.coords;
+
+            try {
+                // Use OpenStreetMap Nominatim for reverse geocoding (free, no API key needed)
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`,
+                    { headers: { 'User-Agent': 'TruckInvoiceApp/1.0' } }
+                );
+
+                if (!response.ok) throw new Error('Geocoding failed');
+
+                const data = await response.json();
+                const address = data.address;
+
+                // Extract city and state
+                const city = address.city || address.town || address.village || address.county || '';
+                const state = address.state || '';
+
+                if (city && state) {
+                    // Try to get state abbreviation
+                    const stateAbbrev = getStateAbbreviation(state);
+                    locationInput.value = `${city}, ${stateAbbrev}`;
+                    showLocationStatus('Location found!', 'success');
+                } else {
+                    locationInput.value = data.display_name.split(',').slice(0, 2).join(',');
+                    showLocationStatus('Location found (approximate)', 'success');
+                }
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                showLocationStatus('Could not get city name. Try entering manually.', 'error');
+            }
+
+            autoBtn.disabled = false;
+            autoBtn.textContent = '📍 Auto';
+        },
+        (error) => {
+            let message = 'Could not get location';
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    message = 'Location permission denied. Please enable location access.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = 'Location unavailable. Try again.';
+                    break;
+                case error.TIMEOUT:
+                    message = 'Location request timed out. Try again.';
+                    break;
+            }
+            showLocationStatus(message, 'error');
+            autoBtn.disabled = false;
+            autoBtn.textContent = '📍 Auto';
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+}
+
+function showLocationStatus(message, type) {
+    const statusDiv = document.getElementById('locationStatus');
+    statusDiv.textContent = message;
+    statusDiv.className = 'location-status ' + type;
+    statusDiv.classList.remove('hidden');
+
+    if (type === 'success') {
+        setTimeout(() => statusDiv.classList.add('hidden'), 3000);
+    }
+}
+
+function getStateAbbreviation(stateName) {
+    const stateMap = {
+        'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+        'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+        'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+        'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+        'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS', 'missouri': 'MO',
+        'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+        'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
+        'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+        'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT',
+        'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+        'district of columbia': 'DC'
+    };
+    const normalized = stateName.toLowerCase().trim();
+    return stateMap[normalized] || stateName;
+}
+
+function saveFuelEntry() {
+    const entry = {
+        id: Date.now().toString(),
+        date: document.getElementById('fuelDate').value,
+        odometer: document.getElementById('fuelOdometer').value,
+        gallons: parseFloat(document.getElementById('fuelGallons').value),
+        pricePerGallon: parseFloat(document.getElementById('fuelPricePerGallon').value),
+        totalCost: parseFloat(document.getElementById('fuelTotalCost').value),
+        location: document.getElementById('fuelLocation').value,
+        station: document.getElementById('fuelStation').value,
+        createdAt: new Date().toISOString()
+    };
+
+    // Save to localStorage (and sync to Firebase if available)
+    const fuelLog = JSON.parse(localStorage.getItem('truck_fuelLog') || '[]');
+    fuelLog.unshift(entry);
+    localStorage.setItem('truck_fuelLog', JSON.stringify(fuelLog));
+
+    // Also add as expense
+    const expense = {
+        id: 'fuel_' + entry.id,
+        date: entry.date,
+        amount: entry.totalCost,
+        category: 'fuel',
+        vendor: entry.station || entry.location,
+        notes: `${entry.gallons} gal @ $${entry.pricePerGallon}/gal - ${entry.location}`,
+        createdAt: entry.createdAt
+    };
+
+    const expenses = JSON.parse(localStorage.getItem('truck_expenses') || '[]');
+    expenses.unshift(expense);
+    localStorage.setItem('truck_expenses', JSON.stringify(expenses));
+
+    // Reset form
+    document.getElementById('fuelLogForm').reset();
+    document.getElementById('fuelDate').value = new Date().toISOString().split('T')[0];
+
+    showToast('Fuel entry added!');
+    displayFuelLog();
+}
+
+function displayFuelLog() {
+    const fuelLog = JSON.parse(localStorage.getItem('truck_fuelLog') || '[]');
+    const listContainer = document.getElementById('fuelLogList');
+
+    if (fuelLog.length === 0) {
+        listContainer.innerHTML = '<div class="no-history">No fuel entries yet.</div>';
+        document.getElementById('avgMpg').textContent = '--';
+        document.getElementById('mtdGallons').textContent = '--';
+        return;
+    }
+
+    // Calculate MPG if we have odometer data
+    let avgMpg = '--';
+    const entriesWithOdometer = fuelLog.filter(e => e.odometer).sort((a, b) => parseInt(b.odometer) - parseInt(a.odometer));
+    if (entriesWithOdometer.length >= 2) {
+        let totalMiles = 0;
+        let totalGallons = 0;
+        for (let i = 0; i < Math.min(entriesWithOdometer.length - 1, 9); i++) {
+            const miles = parseInt(entriesWithOdometer[i].odometer) - parseInt(entriesWithOdometer[i + 1].odometer);
+            if (miles > 0) {
+                totalMiles += miles;
+                totalGallons += entriesWithOdometer[i].gallons;
+            }
+        }
+        if (totalGallons > 0) {
+            avgMpg = (totalMiles / totalGallons).toFixed(1);
+        }
+    }
+    document.getElementById('avgMpg').textContent = avgMpg;
+
+    // Calculate MTD gallons
+    const now = new Date();
+    const mtdGallons = fuelLog
+        .filter(e => {
+            const d = new Date(e.date);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        })
+        .reduce((sum, e) => sum + e.gallons, 0);
+    document.getElementById('mtdGallons').textContent = mtdGallons.toFixed(1);
+
+    // Display recent entries
+    const html = fuelLog.slice(0, 10).map(entry => `
+        <div class="fuel-entry">
+            <div class="fuel-entry-header">
+                <span class="fuel-date">${formatFuelDate(entry.date)}</span>
+                <span class="fuel-location">${escapeHtml(entry.location)}</span>
+            </div>
+            <div class="fuel-entry-details">
+                <span>${entry.gallons.toFixed(1)} gal @ $${entry.pricePerGallon.toFixed(3)}</span>
+                <span class="fuel-total">$${entry.totalCost.toFixed(2)}</span>
+            </div>
+            ${entry.odometer ? `<div class="fuel-odometer">Odometer: ${parseInt(entry.odometer).toLocaleString()}</div>` : ''}
+        </div>
+    `).join('');
+
+    listContainer.innerHTML = html;
+}
+
+function formatFuelDate(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// =====================================
+// RATE CHECK FUNCTIONS
+// =====================================
+
+function setupRateCheckHandlers() {
+    const checkBtn = document.getElementById('checkRateBtn');
+    const minCpmInput = document.getElementById('rateCheckMinCpm');
+
+    checkBtn.addEventListener('click', checkRate);
+
+    // Save minimum CPM when changed
+    minCpmInput.addEventListener('change', () => {
+        localStorage.setItem('truck_minCpm', minCpmInput.value);
+    });
+}
+
+function checkRate() {
+    const pay = parseFloat(document.getElementById('rateCheckPay').value);
+    const miles = parseFloat(document.getElementById('rateCheckMiles').value);
+    const minCpm = parseFloat(document.getElementById('rateCheckMinCpm').value) || 2.50;
+
+    if (!pay || !miles) {
+        showToast('Please enter load pay and miles', 'warning');
+        return;
+    }
+
+    const rpm = pay / miles;
+    const difference = rpm - minCpm;
+
+    document.getElementById('calculatedRpm').textContent = '$' + rpm.toFixed(2);
+    document.getElementById('minRpmDisplay').textContent = '$' + minCpm.toFixed(2);
+
+    const diffElement = document.getElementById('rpmDifference');
+    diffElement.textContent = (difference >= 0 ? '+$' : '-$') + Math.abs(difference).toFixed(2);
+    diffElement.className = 'rate-value ' + (difference >= 0 ? 'positive' : 'negative');
+
+    const verdictElement = document.getElementById('rateVerdict');
+    if (difference >= 0.25) {
+        verdictElement.innerHTML = '<span class="verdict-icon">✅</span> GOOD LOAD! Take it.';
+        verdictElement.className = 'rate-verdict good';
+    } else if (difference >= 0) {
+        verdictElement.innerHTML = '<span class="verdict-icon">⚠️</span> Meets minimum. Consider other factors.';
+        verdictElement.className = 'rate-verdict okay';
+    } else if (difference >= -0.25) {
+        verdictElement.innerHTML = '<span class="verdict-icon">⚠️</span> Below minimum. Only if needed.';
+        verdictElement.className = 'rate-verdict marginal';
+    } else {
+        verdictElement.innerHTML = '<span class="verdict-icon">❌</span> BAD LOAD! Skip it.';
+        verdictElement.className = 'rate-verdict bad';
+    }
+
+    document.getElementById('rateResult').classList.remove('hidden');
+}
+
+// =====================================
+// PER DIEM FUNCTIONS
+// =====================================
+
+function setupPerDiemHandlers() {
+    const calcBtn = document.getElementById('calcPerDiemBtn');
+    const addBtn = document.getElementById('addPerDiemBtn');
+    const perDiemRateInput = document.getElementById('perDiemRate');
+
+    calcBtn.addEventListener('click', calculatePerDiem);
+    addBtn.addEventListener('click', addPerDiemEntry);
+
+    perDiemRateInput.addEventListener('change', () => {
+        localStorage.setItem('truck_perDiemRate', perDiemRateInput.value);
+    });
+}
+
+function calculatePerDiem() {
+    const startDate = document.getElementById('perDiemStart').value;
+    const endDate = document.getElementById('perDiemEnd').value;
+    const rate = parseFloat(document.getElementById('perDiemRate').value) || 69;
+    const partialStart = document.getElementById('partialStartDay').checked;
+    const partialEnd = document.getElementById('partialEndDay').checked;
+
+    if (!startDate || !endDate) {
+        showToast('Please enter start and end dates', 'warning');
+        return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (end < start) {
+        showToast('End date must be after start date', 'warning');
+        return;
+    }
+
+    // Calculate days
+    const diffTime = Math.abs(end - start);
+    const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    let fullDays = totalDays;
+    let partialDays = 0;
+
+    if (partialStart) {
+        fullDays -= 0.5;
+        partialDays += 0.5;
+    }
+    if (partialEnd) {
+        fullDays -= 0.5;
+        partialDays += 0.5;
+    }
+
+    const totalPerDiem = (fullDays - partialDays + partialDays * 0.5) * rate;
+    // Simplified: just use effective days
+    const effectiveDays = fullDays - partialDays + (partialDays * 0.5);
+    const finalTotal = effectiveDays * rate;
+
+    document.getElementById('fullDaysCount').textContent = (totalDays - (partialStart ? 1 : 0) - (partialEnd ? 1 : 0)).toString();
+    document.getElementById('partialDaysCount').textContent = ((partialStart ? 1 : 0) + (partialEnd ? 1 : 0)).toString();
+    document.getElementById('perDiemTotal').textContent = '$' + finalTotal.toFixed(2);
+
+    document.getElementById('perDiemResult').classList.remove('hidden');
+}
+
+function addPerDiemEntry() {
+    const startDate = document.getElementById('perDiemStart').value;
+    const endDate = document.getElementById('perDiemEnd').value;
+    const rate = parseFloat(document.getElementById('perDiemRate').value) || 69;
+    const partialStart = document.getElementById('partialStartDay').checked;
+    const partialEnd = document.getElementById('partialEndDay').checked;
+
+    if (!startDate || !endDate) {
+        showToast('Please enter start and end dates', 'warning');
+        return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    let effectiveDays = totalDays;
+    if (partialStart) effectiveDays -= 0.5;
+    if (partialEnd) effectiveDays -= 0.5;
+
+    const entry = {
+        id: Date.now().toString(),
+        startDate,
+        endDate,
+        totalDays,
+        effectiveDays,
+        rate,
+        total: effectiveDays * rate,
+        partialStart,
+        partialEnd,
+        createdAt: new Date().toISOString()
+    };
+
+    const perDiemLog = JSON.parse(localStorage.getItem('truck_perDiemLog') || '[]');
+    perDiemLog.unshift(entry);
+    localStorage.setItem('truck_perDiemLog', JSON.stringify(perDiemLog));
+
+    // Reset form
+    document.getElementById('perDiemStart').value = '';
+    document.getElementById('perDiemEnd').value = '';
+    document.getElementById('partialStartDay').checked = false;
+    document.getElementById('partialEndDay').checked = false;
+    document.getElementById('perDiemResult').classList.add('hidden');
+
+    showToast('Per diem entry added!');
+    displayPerDiemLog();
+    updatePerDiemYTD();
+}
+
+function displayPerDiemLog() {
+    const perDiemLog = JSON.parse(localStorage.getItem('truck_perDiemLog') || '[]');
+    const listContainer = document.getElementById('perDiemList');
+
+    if (perDiemLog.length === 0) {
+        listContainer.innerHTML = '<div class="no-history">No per diem entries yet.</div>';
+        return;
+    }
+
+    const html = perDiemLog.slice(0, 10).map(entry => `
+        <div class="perdiem-entry">
+            <div class="perdiem-entry-header">
+                <span class="perdiem-dates">${formatFuelDate(entry.startDate)} - ${formatFuelDate(entry.endDate)}</span>
+                <span class="perdiem-total">$${entry.total.toFixed(2)}</span>
+            </div>
+            <div class="perdiem-entry-details">
+                <span>${entry.effectiveDays} days @ $${entry.rate}/day</span>
+                <button type="button" class="btn-delete-small" onclick="deletePerDiemEntry('${entry.id}')" title="Delete">×</button>
+            </div>
+        </div>
+    `).join('');
+
+    listContainer.innerHTML = html;
+}
+
+function updatePerDiemYTD() {
+    const perDiemLog = JSON.parse(localStorage.getItem('truck_perDiemLog') || '[]');
+    const currentYear = new Date().getFullYear();
+
+    const ytdEntries = perDiemLog.filter(e => new Date(e.startDate).getFullYear() === currentYear);
+    const ytdDays = ytdEntries.reduce((sum, e) => sum + e.effectiveDays, 0);
+    const ytdTotal = ytdEntries.reduce((sum, e) => sum + e.total, 0);
+
+    document.getElementById('ytdDays').textContent = ytdDays.toFixed(1);
+    document.getElementById('ytdPerDiem').textContent = '$' + ytdTotal.toFixed(2);
+}
+
+function deletePerDiemEntry(id) {
+    if (!confirm('Delete this per diem entry?')) return;
+
+    let perDiemLog = JSON.parse(localStorage.getItem('truck_perDiemLog') || '[]');
+    perDiemLog = perDiemLog.filter(e => e.id !== id);
+    localStorage.setItem('truck_perDiemLog', JSON.stringify(perDiemLog));
+
+    displayPerDiemLog();
+    updatePerDiemYTD();
+    showToast('Entry deleted');
+}
+
+// =====================================
+// COST PER MILE CALCULATOR
+// =====================================
+
+function setupCpmCalculatorHandlers() {
+    const calcBtn = document.getElementById('calcCpmBtn');
+    const periodSelect = document.getElementById('cpmPeriod');
+
+    calcBtn.addEventListener('click', calculateCostPerMile);
+
+    periodSelect.addEventListener('change', () => {
+        const customRange = document.getElementById('cpmCustomRange');
+        customRange.classList.toggle('hidden', periodSelect.value !== 'custom');
+    });
+}
+
+function calculateCostPerMile() {
+    const period = document.getElementById('cpmPeriod').value;
+    const milesInput = parseFloat(document.getElementById('cpmMilesDriven').value);
+
+    if (!milesInput || milesInput <= 0) {
+        showToast('Please enter total miles driven', 'warning');
+        return;
+    }
+
+    // Get date range based on period
+    const now = new Date();
+    let startDate, endDate;
+
+    if (period === 'mtd') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = now;
+    } else if (period === 'ytd') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = now;
+    } else {
+        startDate = new Date(document.getElementById('cpmStartDate').value);
+        endDate = new Date(document.getElementById('cpmEndDate').value);
+    }
+
+    // Get expenses in range
+    const expenses = JSON.parse(localStorage.getItem('truck_expenses') || '[]');
+    const filteredExpenses = expenses.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= startDate && expDate <= endDate;
+    });
+
+    // Group by category
+    const breakdown = {};
+    const categoryLabels = {
+        fuel: '⛽ Fuel',
+        maintenance: '🔧 Maintenance',
+        tolls: '🅿️ Tolls & Parking',
+        food: '🍔 Food & Meals',
+        insurance: '🛡️ Insurance',
+        permits: '📋 Permits',
+        truck_payment: '🚛 Truck Payment',
+        supplies: '📦 Supplies',
+        drivers_pay: '👤 Drivers Pay',
+        other: '📎 Other'
+    };
+
+    filteredExpenses.forEach(exp => {
+        const cat = exp.category || 'other';
+        if (!breakdown[cat]) breakdown[cat] = 0;
+        breakdown[cat] += parseFloat(exp.amount);
+    });
+
+    const totalExpenses = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+    const cpm = totalExpenses / milesInput;
+
+    // Build breakdown HTML
+    let breakdownHtml = '';
+    Object.entries(breakdown)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([cat, amount]) => {
+            const catCpm = (amount / milesInput).toFixed(2);
+            breakdownHtml += `
+                <div class="cpm-expense-line">
+                    <span class="cpm-category">${categoryLabels[cat] || cat}</span>
+                    <span class="cpm-amount">$${amount.toFixed(2)}</span>
+                    <span class="cpm-per-mile">$${catCpm}/mi</span>
+                </div>
+            `;
+        });
+
+    document.getElementById('cpmExpenseBreakdown').innerHTML = breakdownHtml || '<div class="no-items">No expenses found for this period</div>';
+    document.getElementById('cpmTotalExpenses').textContent = '$' + totalExpenses.toFixed(2);
+    document.getElementById('cpmTotalMiles').textContent = milesInput.toLocaleString();
+    document.getElementById('cpmFinalValue').textContent = '$' + cpm.toFixed(2);
+
+    // Insight
+    let insight = '';
+    if (cpm < 1.50) {
+        insight = '✅ Excellent! Your operating costs are well controlled.';
+    } else if (cpm < 2.00) {
+        insight = '👍 Good. You\'re running efficiently.';
+    } else if (cpm < 2.50) {
+        insight = '⚠️ Average. Look for ways to reduce expenses.';
+    } else {
+        insight = '❌ High costs. Review expenses, especially fuel efficiency.';
+    }
+    document.getElementById('cpmInsight').textContent = insight;
+
+    document.getElementById('cpmResult').classList.remove('hidden');
+}
+
+// =====================================
+// SERVICE REMINDERS
+// =====================================
+
+function setupRemindersHandlers() {
+    const reminderForm = document.getElementById('reminderForm');
+    const reminderTypeSelect = document.getElementById('reminderType');
+
+    reminderForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveReminder();
+    });
+
+    // Show/hide custom name field
+    reminderTypeSelect.addEventListener('change', () => {
+        const customDiv = document.getElementById('customReminderName');
+        customDiv.classList.toggle('hidden', reminderTypeSelect.value !== 'other');
+    });
+}
+
+function saveReminder() {
+    const type = document.getElementById('reminderType').value;
+    const customName = document.getElementById('reminderCustomName').value;
+    const dueDate = document.getElementById('reminderDueDate').value;
+    const dueMiles = document.getElementById('reminderDueMiles').value;
+    const notes = document.getElementById('reminderNotes').value;
+
+    if (!type || !dueDate) {
+        showToast('Please select type and due date', 'warning');
+        return;
+    }
+
+    const typeLabels = {
+        oil_change: '🛢️ Oil Change',
+        dot_inspection: '📋 DOT Inspection',
+        annual_inspection: '🔍 Annual Inspection',
+        registration: '📄 Registration Renewal',
+        ifta: '📊 IFTA Filing',
+        insurance: '🛡️ Insurance Renewal',
+        permit: '📝 Permit Renewal',
+        tires: '🛞 Tire Replacement',
+        brakes: '🛑 Brake Service',
+        other: '📌 ' + (customName || 'Other')
+    };
+
+    const reminder = {
+        id: Date.now().toString(),
+        type,
+        label: typeLabels[type] || type,
+        dueDate,
+        dueMiles: dueMiles || null,
+        notes,
+        completed: false,
+        createdAt: new Date().toISOString()
+    };
+
+    const reminders = JSON.parse(localStorage.getItem('truck_reminders') || '[]');
+    reminders.push(reminder);
+    reminders.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    localStorage.setItem('truck_reminders', JSON.stringify(reminders));
+
+    // Reset form
+    document.getElementById('reminderForm').reset();
+    document.getElementById('customReminderName').classList.add('hidden');
+
+    showToast('Reminder added!');
+    displayReminders();
+}
+
+function displayReminders() {
+    const reminders = JSON.parse(localStorage.getItem('truck_reminders') || '[]');
+    const listContainer = document.getElementById('remindersList');
+
+    // Filter out completed ones older than 30 days
+    const activeReminders = reminders.filter(r => {
+        if (!r.completed) return true;
+        const completedDate = new Date(r.completedAt || r.dueDate);
+        const daysSinceCompleted = (Date.now() - completedDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceCompleted < 30;
+    });
+
+    if (activeReminders.length === 0) {
+        listContainer.innerHTML = '<div class="no-history">No reminders set. Add your first reminder!</div>';
+        return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const html = activeReminders.map(reminder => {
+        const dueDate = new Date(reminder.dueDate + 'T00:00:00');
+        const daysUntil = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+        let statusClass = '';
+        let statusText = '';
+
+        if (reminder.completed) {
+            statusClass = 'completed';
+            statusText = '✓ Completed';
+        } else if (daysUntil < 0) {
+            statusClass = 'overdue';
+            statusText = `${Math.abs(daysUntil)} days overdue!`;
+        } else if (daysUntil === 0) {
+            statusClass = 'due-today';
+            statusText = 'Due Today!';
+        } else if (daysUntil <= 7) {
+            statusClass = 'due-soon';
+            statusText = `${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`;
+        } else if (daysUntil <= 30) {
+            statusClass = 'upcoming';
+            statusText = `${daysUntil} days`;
+        } else {
+            statusClass = 'future';
+            statusText = formatFuelDate(reminder.dueDate);
+        }
+
+        return `
+            <div class="reminder-item ${statusClass} ${reminder.completed ? 'is-completed' : ''}">
+                <div class="reminder-header">
+                    <span class="reminder-label">${reminder.label}</span>
+                    <span class="reminder-status">${statusText}</span>
+                </div>
+                <div class="reminder-details">
+                    <span class="reminder-due">Due: ${formatFuelDate(reminder.dueDate)}</span>
+                    ${reminder.dueMiles ? `<span class="reminder-miles">@ ${parseInt(reminder.dueMiles).toLocaleString()} mi</span>` : ''}
+                </div>
+                ${reminder.notes ? `<div class="reminder-notes">${escapeHtml(reminder.notes)}</div>` : ''}
+                <div class="reminder-actions">
+                    ${!reminder.completed ? `<button type="button" class="btn-complete" onclick="completeReminder('${reminder.id}')">✓ Complete</button>` : ''}
+                    <button type="button" class="btn-delete-small" onclick="deleteReminder('${reminder.id}')">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    listContainer.innerHTML = html;
+}
+
+function completeReminder(id) {
+    const reminders = JSON.parse(localStorage.getItem('truck_reminders') || '[]');
+    const reminder = reminders.find(r => r.id === id);
+    if (reminder) {
+        reminder.completed = true;
+        reminder.completedAt = new Date().toISOString();
+        localStorage.setItem('truck_reminders', JSON.stringify(reminders));
+        displayReminders();
+        showToast('Reminder completed!');
+    }
+}
+
+function deleteReminder(id) {
+    if (!confirm('Delete this reminder?')) return;
+
+    let reminders = JSON.parse(localStorage.getItem('truck_reminders') || '[]');
+    reminders = reminders.filter(r => r.id !== id);
+    localStorage.setItem('truck_reminders', JSON.stringify(reminders));
+
+    displayReminders();
+    showToast('Reminder deleted');
+}
+
+// Make functions globally accessible for onclick handlers
+window.deletePerDiemEntry = deletePerDiemEntry;
+window.completeReminder = completeReminder;
+window.deleteReminder = deleteReminder;
 

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
 </head>
+
 <body>
     <!-- Authentication Modal -->
     <div id="authModal" class="auth-modal">
@@ -57,7 +59,8 @@
 
             <!-- Anonymous Form -->
             <div id="anonymousForm" class="auth-form">
-                <p class="anonymous-info">Continue without creating an account. Your data will sync across devices on this browser, but you won't be able to access it from other browsers unless you sign up later.</p>
+                <p class="anonymous-info">Continue without creating an account. Your data will sync across devices on
+                    this browser, but you won't be able to access it from other browsers unless you sign up later.</p>
                 <button type="button" id="anonymousBtn" class="btn-auth">Continue Anonymously</button>
             </div>
 
@@ -78,157 +81,170 @@
 
         <!-- Mobile Navigation Dropdown -->
         <div class="nav-dropdown-container">
-            <select id="navDropdown" class="nav-dropdown" title="Navigate to page">
+            <select id="navDropdown" class="nav-dropdown" title="Navigate to page"
+                onchange="window.navigateTo(this.value)">
                 <option value="invoice">New Invoice</option>
                 <option value="receipt">Upload Receipt</option>
                 <option value="history">Invoice History</option>
                 <option value="expenses">Expenses</option>
+                <option value="tools">Driver Tools</option>
                 <option value="dashboard">Dashboard</option>
             </select>
         </div>
 
         <!-- Desktop Navigation Tabs -->
         <div class="nav-tabs">
-            <button type="button" id="newInvoiceBtn" class="nav-tab active">New Invoice</button>
-            <button type="button" id="receiptUploadBtn" class="nav-tab">Upload Receipt</button>
-            <button type="button" id="historyBtn" class="nav-tab">Invoice History</button>
-            <button type="button" id="expensesBtn" class="nav-tab">Expenses</button>
-            <button type="button" id="dashboardBtn" class="nav-tab">Dashboard</button>
+            <button type="button" id="newInvoiceBtn" class="nav-tab active" onclick="window.navigateTo('invoice')">New
+                Invoice</button>
+            <button type="button" id="receiptUploadBtn" class="nav-tab" onclick="window.navigateTo('receipt')">Upload
+                Receipt</button>
+            <button type="button" id="historyBtn" class="nav-tab" onclick="window.navigateTo('history')">Invoice
+                History</button>
+            <button type="button" id="expensesBtn" class="nav-tab"
+                onclick="window.navigateTo('expenses')">Expenses</button>
+            <button type="button" id="toolsBtn" class="nav-tab" onclick="window.navigateTo('tools')">Tools</button>
+            <button type="button" id="dashboardBtn" class="nav-tab"
+                onclick="window.navigateTo('dashboard')">Dashboard</button>
         </div>
 
         <!-- New Invoice View -->
         <div id="invoiceFormView" class="view active">
-        <form id="invoiceForm">
-            <!-- Your Company Info (saved automatically) -->
-            <div class="section">
-                <h2>Your Company Info (Auto-saved)</h2>
-                <div class="form-group">
-                    <label>Your Company Name:</label>
-                    <input type="text" id="companyName" placeholder="ABC Transportation LLC" required>
-                </div>
-                <div class="form-group">
-                    <label>Your Address:</label>
-                    <input type="text" id="companyAddress" placeholder="123 Main St, Your City, ST 12345" required>
-                </div>
-                <div class="form-group">
-                    <label>Carrier ID:</label>
-                    <input type="text" id="carrierId" placeholder="000000" required>
-                </div>
-                <div class="form-group">
-                    <label>Your Email (for notifications):</label>
-                    <input type="email" id="userEmail" placeholder="driver@example.com" required>
-                </div>
-            </div>
-
-            <!-- Load Details (changes each time) -->
-            <div class="section">
-                <h2>Load Details</h2>
-                <div class="form-row">
+            <form id="invoiceForm">
+                <!-- Your Company Info (saved automatically) -->
+                <div class="section">
+                    <h2>Your Company Info (Auto-saved)</h2>
                     <div class="form-group">
-                        <label>Invoice #:</label>
-                        <input type="text" id="invoiceNumber" placeholder="001" required>
+                        <label>Your Company Name:</label>
+                        <input type="text" id="companyName" placeholder="ABC Transportation LLC" required>
                     </div>
                     <div class="form-group">
-                        <label>Invoice Date:</label>
-                        <input type="date" id="invoiceDate" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Customer's Name:</label>
-                    <div class="customer-input-wrapper">
-                        <input type="text" id="customerName" placeholder="ABC Company LLC" required>
-                        <select id="customerQuickFill" class="quick-fill-select" title="Select a repeat customer to auto-fill details">
-                            <option value="">Quick Fill...</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Date Delivered:</label>
-                        <input type="date" id="dateDelivered" required>
+                        <label>Your Address:</label>
+                        <input type="text" id="companyAddress" placeholder="123 Main St, Your City, ST 12345" required>
                     </div>
                     <div class="form-group">
-                        <label>Load Number:</label>
-                        <input type="text" id="loadNumber" placeholder="LOAD123" required>
+                        <label>Carrier ID:</label>
+                        <input type="text" id="carrierId" placeholder="000000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Your Email (for notifications):</label>
+                        <input type="email" id="userEmail" placeholder="driver@example.com" required>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Amount to be Paid ($):</label>
-                    <input type="number" step="0.01" id="amount" placeholder="1000.00" required>
-                </div>
-
-                <!-- Accessories/Additional Charges -->
-                <div class="form-group">
-                    <label>Additional Charges (Optional):</label>
-                    <div id="accessoriesContainer">
-                        <!-- Accessories will be added here dynamically -->
-                    </div>
-                    <button type="button" class="btn-add-accessory" id="addAccessoryBtnOld">+ Add Charge (Detention, Lumper, etc.)</button>
-                </div>
-            </div>
-
-            <!-- Calculator Tabs -->
-            <div class="section calculator-section">
-                <h2>Payment Calculator (Optional)</h2>
-
-                <!-- Calculator Type Selector -->
-                <div class="calculator-tabs">
-                    <button type="button" class="calc-tab active" data-calc="miles">Miles/Rate</button>
-                    <button type="button" class="calc-tab" data-calc="product">Product Count</button>
-                </div>
-
-                <!-- Mile/Rate Calculator -->
-                <div id="milesCalculator" class="calculator-panel active">
+                <!-- Load Details (changes each time) -->
+                <div class="section">
+                    <h2>Load Details</h2>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Miles Driven:</label>
-                            <input type="number" step="0.1" id="miles" placeholder="450">
+                            <label>Invoice #:</label>
+                            <input type="text" id="invoiceNumber" placeholder="001" required>
                         </div>
                         <div class="form-group">
-                            <label>Rate per Mile ($):</label>
-                            <input type="number" step="0.01" id="ratePerMile" placeholder="2.50">
+                            <label>Invoice Date:</label>
+                            <input type="date" id="invoiceDate" required>
                         </div>
                     </div>
-                    <div class="calculator-result">
-                        <div class="calculated-amount" id="calculatedAmount">
-                            <span class="calc-label">Calculated Amount:</span>
-                            <span class="calc-value">$0.00</span>
-                        </div>
-                        <button type="button" class="btn-use-calculated" id="useCalculated" disabled>Use This Amount</button>
-                    </div>
-                </div>
 
-                <!-- Product Count Calculator -->
-                <div id="productCalculator" class="calculator-panel">
                     <div class="form-group">
-                        <label>Product Description:</label>
-                        <input type="text" id="productDescription" placeholder="e.g., Pallets of Lumber, Boxes of Electronics">
+                        <label>Customer's Name:</label>
+                        <div class="customer-input-wrapper">
+                            <input type="text" id="customerName" placeholder="ABC Company LLC" required>
+                            <select id="customerQuickFill" class="quick-fill-select"
+                                title="Select a repeat customer to auto-fill details">
+                                <option value="">Quick Fill...</option>
+                            </select>
+                        </div>
                     </div>
+
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Piece Count:</label>
-                            <input type="number" step="1" id="pieceCount" placeholder="100">
+                            <label>Date Delivered:</label>
+                            <input type="date" id="dateDelivered" required>
                         </div>
                         <div class="form-group">
-                            <label>Rate per Piece ($):</label>
-                            <input type="number" step="0.01" id="ratePerPiece" placeholder="5.00">
+                            <label>Load Number:</label>
+                            <input type="text" id="loadNumber" placeholder="LOAD123" required>
                         </div>
                     </div>
-                    <div class="calculator-result">
-                        <div class="calculated-amount" id="calculatedProductAmount">
-                            <span class="calc-label">Calculated Amount:</span>
-                            <span class="calc-value">$0.00</span>
+
+                    <div class="form-group">
+                        <label>Amount to be Paid ($):</label>
+                        <input type="number" step="0.01" id="amount" placeholder="1000.00" required>
+                    </div>
+
+                    <!-- Accessories/Additional Charges -->
+                    <div class="form-group">
+                        <label>Additional Charges (Optional):</label>
+                        <div id="accessoriesContainer">
+                            <!-- Accessories will be added here dynamically -->
                         </div>
-                        <button type="button" class="btn-use-calculated" id="useCalculatedProduct" disabled>Use This Amount</button>
+                        <button type="button" class="btn-add-accessory" id="addAccessoryBtn1">+ Add Charge (Detention,
+                            Lumper, etc.)</button>
                     </div>
                 </div>
-            </div>
 
-            <button type="submit" class="btn-generate">Generate Invoice PDF</button>
-        </form>
+                <!-- Calculator Tabs -->
+                <div class="section calculator-section">
+                    <h2>Payment Calculator (Optional)</h2>
+
+                    <!-- Calculator Type Selector -->
+                    <div class="calculator-tabs">
+                        <button type="button" class="calc-tab active" data-calc="miles">Miles/Rate</button>
+                        <button type="button" class="calc-tab" data-calc="product">Product Count</button>
+                    </div>
+
+                    <!-- Mile/Rate Calculator -->
+                    <div id="milesCalculator" class="calculator-panel active">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Miles Driven:</label>
+                                <input type="number" step="0.1" id="miles" placeholder="450">
+                            </div>
+                            <div class="form-group">
+                                <label>Rate per Mile ($):</label>
+                                <input type="number" step="0.01" id="ratePerMile" placeholder="2.50">
+                            </div>
+                        </div>
+                        <div class="calculator-result">
+                            <div class="calculated-amount" id="calculatedAmount">
+                                <span class="calc-label">Calculated Amount:</span>
+                                <span class="calc-value">$0.00</span>
+                            </div>
+                            <button type="button" class="btn-use-calculated" id="useCalculated" disabled>Use This
+                                Amount</button>
+                        </div>
+                    </div>
+
+                    <!-- Product Count Calculator -->
+                    <div id="productCalculator" class="calculator-panel">
+                        <div class="form-group">
+                            <label>Product Description:</label>
+                            <input type="text" id="productDescription"
+                                placeholder="e.g., Pallets of Lumber, Boxes of Electronics">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Piece Count:</label>
+                                <input type="number" step="1" id="pieceCount" placeholder="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Rate per Piece ($):</label>
+                                <input type="number" step="0.01" id="ratePerPiece" placeholder="5.00">
+                            </div>
+                        </div>
+                        <div class="calculator-result">
+                            <div class="calculated-amount" id="calculatedProductAmount">
+                                <span class="calc-label">Calculated Amount:</span>
+                                <span class="calc-value">$0.00</span>
+                            </div>
+                            <button type="button" class="btn-use-calculated" id="useCalculatedProduct" disabled>Use This
+                                Amount</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-generate">Generate Invoice PDF</button>
+            </form>
         </div>
 
         <!-- Receipt Upload View -->
@@ -236,8 +252,9 @@
             <form id="receiptForm" class="receipt-form">
                 <div class="section">
                     <h2>Upload Receipt</h2>
-                    <p class="section-description">Take a photo or upload an image of your receipt to automatically extract data and populate your invoice form.</p>
-                    
+                    <p class="section-description">Take a photo or upload an image of your receipt to automatically
+                        extract data and populate your invoice form.</p>
+
                     <div class="form-group">
                         <label>Select Receipt Image:</label>
                         <div class="receipt-upload-wrapper">
@@ -247,7 +264,29 @@
                     </div>
 
                     <div id="receiptPreview" class="receipt-preview hidden">
-                        <img id="previewImage" alt="Receipt Preview">
+                        <div id="previewContainer">
+                            <img id="previewImage" alt="Receipt Preview">
+                            <div id="cropOverlay">
+                                <div class="resize-handle handle-nw"></div>
+                                <div class="resize-handle handle-n"></div>
+                                <div class="resize-handle handle-ne"></div>
+                                <div class="resize-handle handle-e"></div>
+                                <div class="resize-handle handle-se"></div>
+                                <div class="resize-handle handle-s"></div>
+                                <div class="resize-handle handle-sw"></div>
+                                <div class="resize-handle handle-w"></div>
+                            </div>
+                        </div>
+                        <div class="preview-controls">
+                            <label class="preview-toggle"><input type="checkbox" id="showPreprocessed"> Show
+                                preprocessed image</label>
+                            <label class="preview-toggle"><input type="checkbox" id="doNotSavePhotos"> Do not save
+                                receipt photos (save parsed data only)</label>
+                            <label class="preview-toggle"><input type="checkbox" id="enhancedOcrToggle"> Enhanced OCR
+                                (contrast + sharpen)</label>
+                        </div>
+                        <!-- Simplified: adjustable crop box directly on preview (no extra buttons) -->
+                        <p class="edit-hint">Tip: draw a rectangle over the receipt to remove surrounding objects.</p>
                     </div>
 
                     <div id="ocrStatus" class="ocr-status hidden">
@@ -287,10 +326,29 @@
                                     <option value="other">Other</option>
                                 </select>
                             </div>
+                            <div class="extracted-item">
+                                <label>Raw OCR Text (editable):</label>
+                                <textarea id="rawOcrText" rows="8"
+                                    placeholder="Full OCR text will appear here..."></textarea>
+                                <label>Raw Tesseract JSON (words/lines):</label>
+                                <textarea id="rawTessJson" rows="8"
+                                    placeholder="Full Tesseract JSON will appear here..." readonly></textarea>
+                                <div class="button-group">
+                                    <button type="button" id="copyRawBtn" class="btn-secondary">Copy Raw Text</button>
+                                    <button type="button" id="saveRawExpenseBtn" class="btn-generate">Save Raw as
+                                        Expense</button>
+                                </div>
+                                <p class="edit-hint">If parsed fields are incorrect, review/edit the raw text above and
+                                    save directly.</p>
+                            </div>
                         </div>
                         <div class="button-group">
                             <button type="button" id="addAsExpenseBtn" class="btn-generate">Add as Expense</button>
                             <button type="button" id="useInInvoiceBtn" class="btn-secondary">Use in Invoice</button>
+                            <button type="button" id="retryAmountBtn" class="btn-secondary">Retry Amount
+                                Detection</button>
+                            <button type="button" id="retryEnhancedBtn" class="btn-secondary">Retry (Enhanced
+                                OCR)</button>
                         </div>
                     </div>
 
@@ -302,7 +360,8 @@
         <!-- Invoice History View -->
         <div id="historyView" class="view">
             <div class="history-header-section">
-                <input type="text" id="searchHistory" placeholder="Search by invoice #, load #, or customer name..." class="search-input">
+                <input type="text" id="searchHistory" placeholder="Search by invoice #, load #, or customer name..."
+                    class="search-input">
             </div>
             <div id="historyList" class="history-list">
                 <div class="no-history">No invoices yet. Generate your first invoice!</div>
@@ -360,6 +419,345 @@
                 </div>
                 <div id="expensesList" class="history-list">
                     <div class="no-history">No expenses yet. Add your first expense!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Driver Tools View -->
+        <div id="toolsView" class="view">
+            <div class="tools-container">
+                <h2>🛠️ Driver Tools</h2>
+
+                <!-- Tool Navigation Tabs -->
+                <div class="tools-tabs">
+                    <button type="button" class="tool-tab active" data-tool="fuelLog">⛽ Fuel Log</button>
+                    <button type="button" class="tool-tab" data-tool="rateCheck">💵 Rate Check</button>
+                    <button type="button" class="tool-tab" data-tool="perDiem">🍽️ Per Diem</button>
+                    <button type="button" class="tool-tab" data-tool="cpmCalc">📊 Cost/Mile</button>
+                    <button type="button" class="tool-tab" data-tool="reminders">🔔 Reminders</button>
+                </div>
+
+                <!-- Fuel Log Tool -->
+                <div id="fuelLogTool" class="tool-panel active">
+                    <form id="fuelLogForm" class="tool-form">
+                        <div class="section">
+                            <h3>⛽ Fuel Log Entry</h3>
+                            <p class="section-description">Track your fuel purchases with automatic location detection.
+                            </p>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Date:</label>
+                                    <input type="date" id="fuelDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Odometer:</label>
+                                    <input type="number" id="fuelOdometer" placeholder="123456" step="1">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Gallons:</label>
+                                    <input type="number" id="fuelGallons" placeholder="150.5" step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Price per Gallon ($):</label>
+                                    <input type="number" id="fuelPricePerGallon" placeholder="3.45" step="0.001"
+                                        required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Total Cost ($):</label>
+                                <input type="number" id="fuelTotalCost" placeholder="Calculated automatically"
+                                    step="0.01" readonly>
+                            </div>
+
+                            <div class="form-group location-group">
+                                <label>Location:</label>
+                                <div class="location-input-wrapper">
+                                    <input type="text" id="fuelLocation" placeholder="City, State" required>
+                                    <button type="button" id="autoLocationBtn" class="btn-location"
+                                        title="Get current location">
+                                        📍 Auto
+                                    </button>
+                                </div>
+                                <div id="locationStatus" class="location-status hidden"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Station Name (Optional):</label>
+                                <input type="text" id="fuelStation" placeholder="Pilot, Love's, TA, etc.">
+                            </div>
+
+                            <button type="submit" class="btn-generate">Add Fuel Entry</button>
+                        </div>
+                    </form>
+
+                    <div class="fuel-history-section">
+                        <h3>Recent Fuel Entries</h3>
+                        <div class="fuel-stats">
+                            <div class="fuel-stat">
+                                <span class="stat-label">Avg MPG (last 10):</span>
+                                <span class="stat-value" id="avgMpg">--</span>
+                            </div>
+                            <div class="fuel-stat">
+                                <span class="stat-label">Total Gallons (MTD):</span>
+                                <span class="stat-value" id="mtdGallons">--</span>
+                            </div>
+                        </div>
+                        <div id="fuelLogList" class="history-list">
+                            <div class="no-history">No fuel entries yet.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Rate Check Tool -->
+                <div id="rateCheckTool" class="tool-panel">
+                    <div class="section">
+                        <h3>💵 Is This Load Worth It?</h3>
+                        <p class="section-description">Quickly check if a load meets your minimum rate requirements.</p>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Load Pay ($):</label>
+                                <input type="number" id="rateCheckPay" placeholder="2500" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>Total Miles:</label>
+                                <input type="number" id="rateCheckMiles" placeholder="1000" step="1">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Your Minimum CPM ($):</label>
+                            <input type="number" id="rateCheckMinCpm" placeholder="2.50" step="0.01" value="2.50">
+                            <small class="form-hint">This is saved for future checks</small>
+                        </div>
+
+                        <button type="button" id="checkRateBtn" class="btn-generate">Check Rate</button>
+
+                        <div id="rateResult" class="rate-result hidden">
+                            <div class="rate-calculation">
+                                <div class="rate-line">
+                                    <span>Rate per Mile:</span>
+                                    <span id="calculatedRpm" class="rate-value">$0.00</span>
+                                </div>
+                                <div class="rate-line">
+                                    <span>Your Minimum:</span>
+                                    <span id="minRpmDisplay" class="rate-value">$0.00</span>
+                                </div>
+                                <div class="rate-line">
+                                    <span>Difference:</span>
+                                    <span id="rpmDifference" class="rate-value">$0.00</span>
+                                </div>
+                            </div>
+                            <div id="rateVerdict" class="rate-verdict">
+                                <!-- Verdict displayed here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Per Diem Tracker Tool -->
+                <div id="perDiemTool" class="tool-panel">
+                    <div class="section">
+                        <h3>🍽️ Per Diem Tracker</h3>
+                        <p class="section-description">Track your days on the road for per diem deductions. IRS rate:
+                            $69/day (2024).</p>
+
+                        <div class="per-diem-settings">
+                            <div class="form-group">
+                                <label>Per Diem Rate ($/day):</label>
+                                <input type="number" id="perDiemRate" placeholder="69.00" step="0.01" value="69.00">
+                                <small class="form-hint">IRS standard rate for transportation industry</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Trip Start Date:</label>
+                                <input type="date" id="perDiemStart">
+                            </div>
+                            <div class="form-group">
+                                <label>Trip End Date:</label>
+                                <input type="date" id="perDiemEnd">
+                            </div>
+                        </div>
+
+                        <div class="form-row checkbox-row">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="partialStartDay"> Partial start day (50%)
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="partialEndDay"> Partial end day (50%)
+                            </label>
+                        </div>
+
+                        <button type="button" id="calcPerDiemBtn" class="btn-generate">Calculate Per Diem</button>
+                        <button type="button" id="addPerDiemBtn" class="btn-secondary">Add to Log</button>
+
+                        <div id="perDiemResult" class="per-diem-result hidden">
+                            <div class="per-diem-calculation">
+                                <div class="perdiem-line">
+                                    <span>Full Days:</span>
+                                    <span id="fullDaysCount">0</span>
+                                </div>
+                                <div class="perdiem-line">
+                                    <span>Partial Days:</span>
+                                    <span id="partialDaysCount">0</span>
+                                </div>
+                                <div class="perdiem-line total">
+                                    <span>Total Per Diem:</span>
+                                    <span id="perDiemTotal">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="per-diem-summary">
+                            <h4>Year-to-Date Summary</h4>
+                            <div class="perdiem-ytd">
+                                <div class="ytd-stat">
+                                    <span class="stat-label">Days on Road:</span>
+                                    <span class="stat-value" id="ytdDays">0</span>
+                                </div>
+                                <div class="ytd-stat">
+                                    <span class="stat-label">Total Per Diem:</span>
+                                    <span class="stat-value" id="ytdPerDiem">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="perDiemLog" class="per-diem-log">
+                            <h4>Per Diem Log</h4>
+                            <div id="perDiemList" class="history-list">
+                                <div class="no-history">No per diem entries yet.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cost Per Mile Calculator Tool -->
+                <div id="cpmCalcTool" class="tool-panel">
+                    <div class="section">
+                        <h3>📊 True Cost Per Mile</h3>
+                        <p class="section-description">Calculate your actual operating cost per mile based on your
+                            expenses.</p>
+
+                        <div class="cpm-period-selector">
+                            <label>Calculate for:</label>
+                            <select id="cpmPeriod" title="Select period">
+                                <option value="mtd">This Month</option>
+                                <option value="ytd">Year to Date</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+
+                        <div id="cpmCustomRange" class="form-row hidden">
+                            <div class="form-group">
+                                <label>Start Date:</label>
+                                <input type="date" id="cpmStartDate">
+                            </div>
+                            <div class="form-group">
+                                <label>End Date:</label>
+                                <input type="date" id="cpmEndDate">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Total Miles Driven:</label>
+                            <input type="number" id="cpmMilesDriven" placeholder="Enter total miles for period"
+                                step="1">
+                            <small class="form-hint">Or calculate from fuel log if odometer is tracked</small>
+                        </div>
+
+                        <button type="button" id="calcCpmBtn" class="btn-generate">Calculate Cost Per Mile</button>
+
+                        <div id="cpmResult" class="cpm-result hidden">
+                            <div class="cpm-breakdown">
+                                <h4>Expense Breakdown</h4>
+                                <div id="cpmExpenseBreakdown" class="cpm-expenses">
+                                    <!-- Populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div class="cpm-total">
+                                <div class="cpm-line">
+                                    <span>Total Expenses:</span>
+                                    <span id="cpmTotalExpenses">$0.00</span>
+                                </div>
+                                <div class="cpm-line">
+                                    <span>Total Miles:</span>
+                                    <span id="cpmTotalMiles">0</span>
+                                </div>
+                                <div class="cpm-line highlight">
+                                    <span>Cost Per Mile:</span>
+                                    <span id="cpmFinalValue">$0.00</span>
+                                </div>
+                            </div>
+                            <div class="cpm-insight">
+                                <p id="cpmInsight"><!-- Insight text --></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service Reminders Tool -->
+                <div id="remindersTool" class="tool-panel">
+                    <form id="reminderForm" class="tool-form">
+                        <div class="section">
+                            <h3>🔔 Service Reminders</h3>
+                            <p class="section-description">Never miss an oil change, inspection, or registration
+                                renewal.</p>
+
+                            <div class="form-group">
+                                <label>Reminder Type:</label>
+                                <select id="reminderType" title="Select reminder type" required>
+                                    <option value="">Select Type...</option>
+                                    <option value="oil_change">Oil Change</option>
+                                    <option value="dot_inspection">DOT Inspection</option>
+                                    <option value="annual_inspection">Annual Inspection</option>
+                                    <option value="registration">Registration Renewal</option>
+                                    <option value="ifta">IFTA Filing</option>
+                                    <option value="insurance">Insurance Renewal</option>
+                                    <option value="permit">Permit Renewal</option>
+                                    <option value="tires">Tire Replacement</option>
+                                    <option value="brakes">Brake Service</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div id="customReminderName" class="form-group hidden">
+                                <label>Custom Reminder Name:</label>
+                                <input type="text" id="reminderCustomName" placeholder="e.g., DEF Fluid">
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Due Date:</label>
+                                    <input type="date" id="reminderDueDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Due at Miles (Optional):</label>
+                                    <input type="number" id="reminderDueMiles" placeholder="500000" step="1">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Notes (Optional):</label>
+                                <input type="text" id="reminderNotes" placeholder="Any additional details...">
+                            </div>
+
+                            <button type="submit" class="btn-generate">Add Reminder</button>
+                        </div>
+                    </form>
+
+                    <div class="reminders-list-section">
+                        <h3>Upcoming Reminders</h3>
+                        <div id="remindersList" class="reminders-list">
+                            <div class="no-history">No reminders set. Add your first reminder!</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -441,6 +839,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
     <script src="firebase-config.js"></script>
-    <script src="script.js"></script>
+    <!-- Global navigation script (non-module) must load FIRST -->
+    <script src="nav.js"></script>
+    <script type="module" src="script.js"></script>
+    <script type="module" src="expenses.js"></script>
+    <script type="module" src="dashboard.js"></script>
 </body>
+
 </html>
