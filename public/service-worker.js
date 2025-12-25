@@ -1,8 +1,9 @@
-const CACHE_NAME = 'truckinvoice-v21-truck-management';
+const CACHE_NAME = 'truckinvoice-v23-force-sync';
 const urlsToCache = [
   './index.html',
   './style.css',
   './script.js',
+  './nav.js',
   './config.js',
   './expenses.js',
   './dashboard.js',
@@ -17,8 +18,9 @@ const urlsToCache = [
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js'
 ];
 
-// Install service worker and cache files
+// Force immediate activation
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -43,7 +45,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Update service worker
+// Update service worker and take control immediately
 self.addEventListener('activate', (event) => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -51,10 +53,14 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Take control of all clients immediately
+      return self.clients.claim();
     })
   );
 });

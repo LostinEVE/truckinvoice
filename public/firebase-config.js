@@ -150,6 +150,7 @@ function initializeDataSync() {
     if (!currentUser) return;
 
     const userId = currentUser.uid;
+    console.log('Starting data sync for user:', userId);
 
     // Sync company info
     syncCompanyInfo(userId);
@@ -159,6 +160,15 @@ function initializeDataSync() {
 
     // Sync expenses
     syncExpenses(userId);
+
+    // Force UI refresh after initial sync
+    setTimeout(() => {
+        console.log('Forcing UI refresh after sync...');
+        if (typeof loadCompanyInfo === 'function') loadCompanyInfo();
+        if (typeof displayHistory === 'function') displayHistory();
+        if (typeof displayExpenses === 'function') displayExpenses();
+        if (typeof updateDashboard === 'function') updateDashboard();
+    }, 1500);
 }
 
 // Sync company information
@@ -211,7 +221,7 @@ function syncInvoices(userId) {
 
         console.log('Firebase sync triggered...');
         const data = snapshot.val();
-        
+
         // Get local invoices
         const localData = localStorage.getItem('invoiceHistory');
         const localInvoices = localData ? JSON.parse(localData) : [];
@@ -247,17 +257,17 @@ function syncInvoices(userId) {
                     console.log(`Invoice ${id}: Local wins (has paymentStatusUpdated, remote doesn't)`);
                     mergedMap.set(id, localInv);
                     invoicesToPushToCloud.push(localInv);
-                } 
+                }
                 // If remote has it but local doesn't, remote wins
                 else if (!localHasUpdate && remoteHasUpdate) {
                     console.log(`Invoice ${id}: Remote wins (has paymentStatusUpdated, local doesn't)`);
                     mergedMap.set(id, remoteInv);
-                } 
+                }
                 // Both have timestamps - compare them
                 else if (localHasUpdate && remoteHasUpdate) {
                     const localTime = new Date(localInv.paymentStatusUpdated).getTime();
                     const remoteTime = new Date(remoteInv.paymentStatusUpdated).getTime();
-                    
+
                     if (localTime >= remoteTime) {
                         console.log(`Invoice ${id}: Local wins (newer timestamp)`);
                         mergedMap.set(id, localInv);
@@ -266,7 +276,7 @@ function syncInvoices(userId) {
                         console.log(`Invoice ${id}: Remote wins (newer timestamp)`);
                         mergedMap.set(id, remoteInv);
                     }
-                } 
+                }
                 // Neither has timestamp - prefer local (user's most recent action)
                 else {
                     console.log(`Invoice ${id}: Local wins (no timestamps, preferring local)`);
@@ -337,19 +347,21 @@ function syncExpenses(userId) {
     // Listen for remote changes
     expensesRef.on('value', (snapshot) => {
         const data = snapshot.val();
+        console.log('Expenses sync received:', data ? Object.keys(data).length + ' expenses' : 'no data');
         if (data) {
             // Convert object to array
             const expensesArray = Object.values(data);
+            console.log('Saving', expensesArray.length, 'expenses to localStorage');
 
             // Update localStorage with remote data
             localStorage.setItem('expenses', JSON.stringify(expensesArray));
 
             // Update UI if on expenses page
-            if (document.getElementById('expensesView').classList.contains('active')) {
-                displayExpenses();
+            if (document.getElementById('expensesView') && document.getElementById('expensesView').classList.contains('active')) {
+                if (typeof displayExpenses === 'function') displayExpenses();
             }
-            if (document.getElementById('dashboardView').classList.contains('active')) {
-                updateDashboard();
+            if (document.getElementById('dashboardView') && document.getElementById('dashboardView').classList.contains('active')) {
+                if (typeof updateDashboard === 'function') updateDashboard();
             }
         }
     });
@@ -556,6 +568,91 @@ window.addEventListener('DOMContentLoaded', () => {
     setupAuthUI();
 });
 
+// Force Data Sync - manually pull all data from Firebase
+function forceDataSync() {
+    if (!currentUser) {
+        alert('Please sign in first to sync data.');
+        return;
+    }
+
+    const userId = currentUser.uid;
+    console.log('Force sync starting for user:', userId);
+    showSyncStatus('syncing', 'Force syncing...');
+
+    const promises = [];
+
+    // Force sync company info
+    promises.push(
+        database.ref(`users/${userId}/companyInfo`).once('value').then((snapshot) => {
+            const data = snapshot.val();
+            console.log('Force sync - Company info:', data);
+            if (data) {
+                localStorage.setItem('companyName', data.companyName || '');
+                localStorage.setItem('companyAddress', data.companyAddress || '');
+                localStorage.setItem('carrierId', data.carrierId || '');
+                localStorage.setItem('userEmail', data.userEmail || '');
+                console.log('Company info saved to localStorage');
+            }
+        })
+    );
+
+    // Force sync invoices
+    promises.push(
+        database.ref(`users/${userId}/invoices`).once('value').then((snapshot) => {
+            const data = snapshot.val();
+            console.log('Force sync - Invoices:', data);
+            if (data) {
+                const invoicesArray = Object.values(data);
+                localStorage.setItem('invoiceHistory', JSON.stringify(invoicesArray));
+                console.log('Saved', invoicesArray.length, 'invoices to localStorage');
+            }
+        })
+    );
+
+    // Force sync expenses
+    promises.push(
+        database.ref(`users/${userId}/expenses`).once('value').then((snapshot) => {
+            const data = snapshot.val();
+            console.log('Force sync - Expenses:', data);
+            if (data) {
+                const expensesArray = Object.values(data);
+                localStorage.setItem('expenses', JSON.stringify(expensesArray));
+                console.log('Saved', expensesArray.length, 'expenses to localStorage');
+            }
+        })
+    );
+
+    Promise.all(promises).then(() => {
+        console.log('Force sync complete! Refreshing UI...');
+        showSyncStatus('synced', 'Force sync complete!');
+
+        // Force refresh all UI components
+        if (typeof loadCompanyInfo === 'function') {
+            loadCompanyInfo();
+            console.log('Company info UI refreshed');
+        }
+        if (typeof displayHistory === 'function') {
+            displayHistory();
+            console.log('Invoice history UI refreshed');
+        }
+        if (typeof displayExpenses === 'function') {
+            displayExpenses();
+            console.log('Expenses UI refreshed');
+        }
+        if (typeof updateDashboard === 'function') {
+            updateDashboard();
+            console.log('Dashboard UI refreshed');
+        }
+
+        alert('Sync complete! Your data should now be visible.');
+    }).catch((error) => {
+        console.error('Force sync error:', error);
+        showSyncStatus('error', 'Sync failed');
+        alert('Sync failed: ' + error.message);
+    });
+}
+
 // Expose functions globally for use in other scripts
 window.saveInvoiceToCloud = saveInvoiceToCloud;
 window.deleteInvoiceFromCloud = deleteInvoiceFromCloud;
+window.forceDataSync = forceDataSync;
