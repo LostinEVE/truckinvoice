@@ -1520,15 +1520,156 @@ function setupReceiptUpload() {
         });
     }
 
+    // Setup truck management
+    setupTruckManagement();
+
+    // Load truck options
+    populateTruckDropdowns();
+
+    // Setup filter handler
+    const filterSelect = document.getElementById('filterReceiptTruck');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', () => loadSavedReceipts());
+    }
+
     // Load saved receipts on page load
     loadSavedReceipts();
+}
+
+// ===== Truck Management =====
+function getTrucks() {
+    return JSON.parse(localStorage.getItem('trucks') || '[]');
+}
+
+function saveTrucks(trucks) {
+    localStorage.setItem('trucks', JSON.stringify(trucks));
+}
+
+function setupTruckManagement() {
+    const manageTrucksBtn = document.getElementById('manageTrucksBtn');
+    const addTruckBtn = document.getElementById('addTruckBtn');
+
+    if (manageTrucksBtn) {
+        manageTrucksBtn.addEventListener('click', openTruckModal);
+    }
+
+    if (addTruckBtn) {
+        addTruckBtn.addEventListener('click', addTruck);
+    }
+}
+
+function openTruckModal() {
+    const modal = document.getElementById('truckModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        renderTruckList();
+    }
+}
+
+function closeTruckModal() {
+    const modal = document.getElementById('truckModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function addTruck() {
+    const nameInput = document.getElementById('newTruckName');
+    const unitInput = document.getElementById('newTruckUnit');
+
+    const name = nameInput.value.trim();
+    const unit = unitInput.value.trim();
+
+    if (!name) {
+        alert('Please enter a truck name');
+        return;
+    }
+
+    const trucks = getTrucks();
+    const newTruck = {
+        id: Date.now().toString(),
+        name,
+        unit,
+        createdAt: new Date().toISOString()
+    };
+
+    trucks.push(newTruck);
+    saveTrucks(trucks);
+
+    // Clear inputs
+    nameInput.value = '';
+    unitInput.value = '';
+
+    // Refresh UI
+    renderTruckList();
+    populateTruckDropdowns();
+}
+
+function deleteTruck(truckId) {
+    if (!confirm('Delete this truck? Receipts will keep their truck assignment.')) return;
+
+    let trucks = getTrucks();
+    trucks = trucks.filter(t => t.id !== truckId);
+    saveTrucks(trucks);
+
+    renderTruckList();
+    populateTruckDropdowns();
+}
+
+function renderTruckList() {
+    const listContainer = document.getElementById('truckList');
+    if (!listContainer) return;
+
+    const trucks = getTrucks();
+
+    if (trucks.length === 0) {
+        listContainer.innerHTML = '<div class="no-trucks">No trucks added yet.</div>';
+        return;
+    }
+
+    listContainer.innerHTML = trucks.map(truck => `
+        <div class="truck-item" data-id="${truck.id}">
+            <div class="truck-item-info">
+                <span class="truck-item-name">🚛 ${escapeHtml(truck.name)}</span>
+                ${truck.unit ? `<span class="truck-item-unit">Unit #${escapeHtml(truck.unit)}</span>` : ''}
+            </div>
+            <div class="truck-item-actions">
+                <button class="btn-delete-truck" onclick="deleteTruck('${truck.id}')">🗑</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function populateTruckDropdowns() {
+    const trucks = getTrucks();
+    const receiptTruckSelect = document.getElementById('receiptTruck');
+    const filterTruckSelect = document.getElementById('filterReceiptTruck');
+
+    const options = trucks.map(t =>
+        `<option value="${t.id}">${escapeHtml(t.name)}${t.unit ? ` (#${escapeHtml(t.unit)})` : ''}</option>`
+    ).join('');
+
+    if (receiptTruckSelect) {
+        receiptTruckSelect.innerHTML = '<option value="">All Trucks / No Selection</option>' + options;
+    }
+
+    if (filterTruckSelect) {
+        filterTruckSelect.innerHTML = '<option value="">All Trucks</option>' + options;
+    }
+}
+
+function getTruckName(truckId) {
+    if (!truckId) return null;
+    const trucks = getTrucks();
+    const truck = trucks.find(t => t.id === truckId);
+    return truck ? truck.name : null;
 }
 
 // IndexedDB for local receipt photo storage
 let receiptDB = null;
 
 function initReceiptDB() {
-    const request = indexedDB.open('TruckInvoiceReceipts', 1);
+    const request = indexedDB.open('TruckInvoiceReceipts', 2); // Bump version for truck field
 
     request.onerror = (event) => {
         console.error('IndexedDB error:', event.target.error);
@@ -1548,7 +1689,15 @@ function initReceiptDB() {
             const store = db.createObjectStore('receipts', { keyPath: 'id', autoIncrement: true });
             store.createIndex('date', 'date', { unique: false });
             store.createIndex('category', 'category', { unique: false });
+            store.createIndex('truckId', 'truckId', { unique: false });
             console.log('Receipts object store created');
+        } else {
+            // Add truckId index if upgrading
+            const transaction = event.target.transaction;
+            const store = transaction.objectStore('receipts');
+            if (!store.indexNames.contains('truckId')) {
+                store.createIndex('truckId', 'truckId', { unique: false });
+            }
         }
     };
 }
@@ -1560,13 +1709,14 @@ async function saveReceipt() {
     const categoryInput = document.getElementById('receiptCategory');
     const vendorInput = document.getElementById('receiptVendor');
     const notesInput = document.getElementById('receiptNotes');
-    const imageInput = document.getElementById('receiptImage');
+    const truckInput = document.getElementById('receiptTruck');
 
     const date = dateInput.value;
     const amount = parseFloat(amountInput.value) || 0;
     const category = categoryInput.value;
     const vendor = vendorInput.value;
     const notes = notesInput.value;
+    const truckId = truckInput ? truckInput.value : '';
 
     if (!date || !amount || !category || !vendor) {
         alert('Please fill in all required fields');
@@ -1587,6 +1737,7 @@ async function saveReceipt() {
         category,
         vendor,
         notes,
+        truckId,
         photo: photoData,
         createdAt: new Date().toISOString()
     };
@@ -1616,6 +1767,7 @@ async function saveReceipt() {
             category,
             vendor,
             notes: notes || 'Receipt upload',
+            truckId,
             hasPhoto: !!photoData
         };
         expenses.push(newExpense);
@@ -1636,7 +1788,7 @@ async function saveReceipt() {
     }
 }
 
-// Load and display saved receipts from IndexedDB
+// Load and display saved receipts from IndexedDB (grouped by month)
 function loadSavedReceipts() {
     const listContainer = document.getElementById('savedReceiptsList');
     if (!listContainer) return;
@@ -1651,7 +1803,14 @@ function loadSavedReceipts() {
     const request = store.getAll();
 
     request.onsuccess = () => {
-        const receipts = request.result;
+        let receipts = request.result;
+
+        // Apply truck filter
+        const filterTruckSelect = document.getElementById('filterReceiptTruck');
+        const filterTruckId = filterTruckSelect ? filterTruckSelect.value : '';
+        if (filterTruckId) {
+            receipts = receipts.filter(r => r.truckId === filterTruckId);
+        }
 
         if (receipts.length === 0) {
             listContainer.innerHTML = '<div class="no-history">No saved receipts yet.</div>';
@@ -1661,34 +1820,106 @@ function loadSavedReceipts() {
         // Sort by date, newest first
         receipts.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        listContainer.innerHTML = receipts.map(receipt => `
-            <div class="receipt-card" data-id="${receipt.id}">
-                ${receipt.photo ?
-                `<img src="${receipt.photo}" class="receipt-card-thumbnail" 
-                          onclick="viewReceiptPhoto('${receipt.id}')" 
-                          alt="Receipt photo">` :
-                '<div class="receipt-card-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center;">📄</div>'
+        // Group by month
+        const groupedByMonth = {};
+        receipts.forEach(receipt => {
+            const date = new Date(receipt.date);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            if (!groupedByMonth[monthKey]) {
+                groupedByMonth[monthKey] = {
+                    label: monthLabel,
+                    receipts: [],
+                    total: 0
+                };
             }
-                <div class="receipt-card-info">
-                    <h4>${escapeHtml(receipt.vendor)}</h4>
-                    <div class="receipt-amount">$${receipt.amount.toFixed(2)}</div>
-                    <div class="receipt-meta">
-                        ${new Date(receipt.date).toLocaleDateString()} • ${getCategoryLabel(receipt.category)}
+            groupedByMonth[monthKey].receipts.push(receipt);
+            groupedByMonth[monthKey].total += receipt.amount;
+        });
+
+        // Sort months newest first
+        const sortedMonths = Object.keys(groupedByMonth).sort().reverse();
+
+        // Build accordion HTML
+        let html = '<div class="receipt-month-accordion">';
+
+        sortedMonths.forEach((monthKey, index) => {
+            const group = groupedByMonth[monthKey];
+            const isExpanded = index === 0; // Expand first month by default
+
+            html += `
+                <div class="receipt-month-group">
+                    <button type="button" class="receipt-month-header" data-month="${monthKey}" aria-expanded="${isExpanded}">
+                        <div class="month-info">
+                            <span class="month-icon">📅</span>
+                            <span class="month-name">${group.label}</span>
+                        </div>
+                        <div class="month-stats">
+                            <span class="receipt-count">${group.receipts.length} receipt${group.receipts.length !== 1 ? 's' : ''}</span>
+                            <span class="month-total">$${group.total.toFixed(2)}</span>
+                            <span class="chevron">▼</span>
+                        </div>
+                    </button>
+                    <div class="receipt-month-items ${isExpanded ? 'expanded' : ''}" data-month-items="${monthKey}">
+                        ${group.receipts.map(receipt => renderReceiptCard(receipt)).join('')}
                     </div>
-                    ${receipt.notes ? `<div class="receipt-meta">${escapeHtml(receipt.notes)}</div>` : ''}
                 </div>
-                <div class="receipt-card-actions">
-                    ${receipt.photo ? `<button class="btn-view-receipt" onclick="viewReceiptPhoto('${receipt.id}')">👁 View</button>` : ''}
-                    <button class="btn-delete-receipt" onclick="deleteReceipt('${receipt.id}')">🗑 Delete</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        });
+
+        html += '</div>';
+        listContainer.innerHTML = html;
+
+        // Add click handlers for accordion headers
+        document.querySelectorAll('.receipt-month-header').forEach(header => {
+            header.addEventListener('click', toggleReceiptMonth);
+        });
     };
 
     request.onerror = () => {
         console.error('Error loading receipts:', request.error);
         listContainer.innerHTML = '<div class="no-history">Error loading receipts.</div>';
     };
+}
+
+// Render a single receipt card
+function renderReceiptCard(receipt) {
+    const truckName = getTruckName(receipt.truckId);
+
+    return `
+        <div class="receipt-card" data-id="${receipt.id}">
+            ${receipt.photo ?
+            `<img src="${receipt.photo}" class="receipt-card-thumbnail" 
+                      onclick="viewReceiptPhoto('${receipt.id}')" 
+                      alt="Receipt photo">` :
+            '<div class="receipt-card-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center;">📄</div>'
+        }
+            <div class="receipt-card-info">
+                <h4>${escapeHtml(receipt.vendor)}${truckName ? `<span class="receipt-truck-badge">🚛 ${escapeHtml(truckName)}</span>` : ''}</h4>
+                <div class="receipt-amount">$${receipt.amount.toFixed(2)}</div>
+                <div class="receipt-meta">
+                    ${new Date(receipt.date).toLocaleDateString()} • ${getCategoryLabel(receipt.category)}
+                </div>
+                ${receipt.notes ? `<div class="receipt-meta">${escapeHtml(receipt.notes)}</div>` : ''}
+            </div>
+            <div class="receipt-card-actions">
+                ${receipt.photo ? `<button class="btn-view-receipt" onclick="viewReceiptPhoto('${receipt.id}')">👁 View</button>` : ''}
+                <button class="btn-delete-receipt" onclick="deleteReceipt('${receipt.id}')">🗑 Delete</button>
+            </div>
+        </div>
+    `;
+}
+
+// Toggle receipt month accordion
+function toggleReceiptMonth(event) {
+    const header = event.currentTarget;
+    const monthKey = header.dataset.month;
+    const items = document.querySelector(`[data-month-items="${monthKey}"]`);
+    const isExpanded = header.getAttribute('aria-expanded') === 'true';
+
+    header.setAttribute('aria-expanded', !isExpanded);
+    items.classList.toggle('expanded', !isExpanded);
 }
 
 // View full receipt photo in modal

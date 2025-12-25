@@ -271,6 +271,18 @@
                         <h3>Receipt Details</h3>
                         <div class="form-row">
                             <div class="form-group">
+                                <label>Truck:</label>
+                                <select id="receiptTruck" title="Select truck">
+                                    <option value="">All Trucks / No Selection</option>
+                                </select>
+                            </div>
+                            <div class="form-group truck-manage-btn-container">
+                                <button type="button" id="manageTrucksBtn" class="btn-secondary btn-small">⚙️ Manage
+                                    Trucks</button>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label>Date:</label>
                                 <input type="date" id="receiptDate" required>
                             </div>
@@ -311,10 +323,43 @@
             </form>
 
             <div class="saved-receipts-section">
-                <h3>📁 Saved Receipts</h3>
+                <div class="receipts-header">
+                    <h3>📁 Saved Receipts</h3>
+                    <div class="receipts-filter">
+                        <select id="filterReceiptTruck" title="Filter by truck">
+                            <option value="">All Trucks</option>
+                        </select>
+                    </div>
+                </div>
                 <p class="section-description">Your receipt photos are stored locally on this device.</p>
                 <div id="savedReceiptsList" class="saved-receipts-list">
                     <div class="no-history">No saved receipts yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Truck Management Modal -->
+        <div id="truckModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🚛 Manage Trucks</h3>
+                    <button type="button" class="modal-close" onclick="closeTruckModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="add-truck-form">
+                        <h4>Add New Truck</h4>
+                        <div class="form-row">
+                            <input type="text" id="newTruckName" placeholder="Truck name (e.g., Truck 1, Blue Pete)">
+                            <input type="text" id="newTruckUnit" placeholder="Unit # (optional)">
+                        </div>
+                        <button type="button" id="addTruckBtn" class="btn-generate">➕ Add Truck</button>
+                    </div>
+                    <div class="truck-list-section">
+                        <h4>Your Trucks</h4>
+                        <div id="truckList" class="truck-list">
+                            <div class="no-trucks">No trucks added yet.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
