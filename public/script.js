@@ -540,7 +540,76 @@ function displayHistory(searchTerm = '') {
 
     checkOverdueInvoices(filteredInvoices);
 
-    historyList.innerHTML = filteredInvoices.map(invoice => {
+    // Separate invoices by payment status
+    const unpaidInvoices = filteredInvoices.filter(inv => inv.paymentStatus !== 'paid');
+    const paidInvoices = filteredInvoices.filter(inv => inv.paymentStatus === 'paid');
+
+    // Calculate totals
+    const unpaidTotal = unpaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+    const paidTotal = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+
+    let html = '<div class="invoice-status-accordion">';
+
+    // Unpaid invoices section (expanded by default)
+    html += `
+        <div class="invoice-status-group">
+            <button type="button" class="status-header unpaid-header" data-status="unpaid" aria-expanded="true">
+                <span class="status-icon">&#128308;</span>
+                <span class="status-name">Unpaid Invoices</span>
+                <span class="status-count">${unpaidInvoices.length} invoice${unpaidInvoices.length !== 1 ? 's' : ''}</span>
+                <span class="status-total">$${unpaidTotal.toFixed(2)}</span>
+                <span class="status-chevron">&#9650;</span>
+            </button>
+            <div class="status-invoices-list expanded" data-status-list="unpaid">
+                ${unpaidInvoices.length > 0 ? renderInvoiceItems(unpaidInvoices) : '<div class="no-items">No unpaid invoices</div>'}
+            </div>
+        </div>
+    `;
+
+    // Paid invoices section (collapsed by default)
+    html += `
+        <div class="invoice-status-group">
+            <button type="button" class="status-header paid-header" data-status="paid" aria-expanded="false">
+                <span class="status-icon">&#9989;</span>
+                <span class="status-name">Paid Invoices</span>
+                <span class="status-count">${paidInvoices.length} invoice${paidInvoices.length !== 1 ? 's' : ''}</span>
+                <span class="status-total">$${paidTotal.toFixed(2)}</span>
+                <span class="status-chevron">&#9660;</span>
+            </button>
+            <div class="status-invoices-list" data-status-list="paid">
+                ${paidInvoices.length > 0 ? renderInvoiceItems(paidInvoices) : '<div class="no-items">No paid invoices</div>'}
+            </div>
+        </div>
+    `;
+
+    html += '</div>';
+    historyList.innerHTML = html;
+
+    // Add click handlers for accordion headers
+    document.querySelectorAll('.status-header').forEach(header => {
+        header.addEventListener('click', toggleStatusAccordion);
+    });
+}
+
+// Toggle invoice status accordion open/closed
+function toggleStatusAccordion(event) {
+    const header = event.currentTarget;
+    const status = header.dataset.status;
+    const list = document.querySelector(`[data-status-list="${status}"]`);
+    const isExpanded = header.getAttribute('aria-expanded') === 'true';
+
+    // Toggle this section
+    header.setAttribute('aria-expanded', !isExpanded);
+    list.classList.toggle('expanded', !isExpanded);
+
+    // Update chevron
+    const chevron = header.querySelector('.status-chevron');
+    chevron.innerHTML = isExpanded ? '&#9660;' : '&#9650;';
+}
+
+// Render individual invoice items
+function renderInvoiceItems(invoices) {
+    return invoices.map(invoice => {
         const isPaid = invoice.paymentStatus === 'paid';
         const deliveredDate = new Date(invoice.dateDelivered);
         const daysSinceDelivery = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
@@ -552,10 +621,7 @@ function displayHistory(searchTerm = '') {
                 <div class="history-title">
                     <strong>Invoice #${invoice.invoiceNumber}</strong>
                     <span class="history-date">${new Date(invoice.timestamp).toLocaleDateString()}</span>
-                    <span class="payment-status ${isPaid ? 'paid' : 'unpaid'}">
-                        ${isPaid ? '&#10003; Paid' : 'Unpaid'}
-                    </span>
-                    ${isOverdue ? '<span class="overdue-badge">⚠ 30+ Days Overdue</span>' : ''}
+                    ${isOverdue ? '<span class="overdue-badge">&#9888; 30+ Days Overdue</span>' : ''}
                 </div>
                 <div class="history-amount">$${invoice.amount}</div>
             </div>
@@ -568,7 +634,7 @@ function displayHistory(searchTerm = '') {
             <div class="history-actions">
                 <label class="payment-checkbox">
                     <input type="checkbox" class="payment-toggle" data-id="${invoice.id}" ${isPaid ? 'checked' : ''}>
-                    <span>Mark as Paid</span>
+                    <span>${isPaid ? 'Paid' : 'Mark as Paid'}</span>
                 </label>
                 <button class="btn-regenerate" data-action="regenerate" data-id="${invoice.id}">Regenerate PDF</button>
                 <button class="btn-delete" data-action="delete" data-id="${invoice.id}">Delete</button>

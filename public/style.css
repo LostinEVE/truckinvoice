@@ -2030,6 +2030,124 @@ select:focus {
     background: #ffebee !important;
 }
 
+/* Invoice Status Accordion */
+.invoice-status-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.invoice-status-group {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    text-align: left;
+    transition: background-color 0.2s;
+    gap: 10px;
+}
+
+.status-header.unpaid-header {
+    background: #fff3e0;
+}
+
+.status-header.unpaid-header:hover {
+    background: #ffe0b2;
+}
+
+.status-header.unpaid-header[aria-expanded="true"] {
+    background: #ffcc80;
+    border-bottom: 1px solid #ddd;
+}
+
+.status-header.paid-header {
+    background: #e8f5e9;
+}
+
+.status-header.paid-header:hover {
+    background: #c8e6c9;
+}
+
+.status-header.paid-header[aria-expanded="true"] {
+    background: #a5d6a7;
+    border-bottom: 1px solid #ddd;
+}
+
+.status-icon {
+    font-size: 1.2rem;
+    width: 28px;
+    text-align: center;
+}
+
+.status-name {
+    flex: 1;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.status-count {
+    font-size: 0.85rem;
+    color: #666;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 10px;
+    border-radius: 12px;
+}
+
+.status-total {
+    font-weight: 700;
+    min-width: 90px;
+    text-align: right;
+}
+
+.unpaid-header .status-total {
+    color: #e65100;
+}
+
+.paid-header .status-total {
+    color: #2e7d32;
+}
+
+.status-chevron {
+    font-size: 0.9rem;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.status-invoices-list {
+    display: none;
+    padding: 0;
+    background: #fff;
+}
+
+.status-invoices-list.expanded {
+    display: block;
+}
+
+.status-invoices-list .history-item {
+    border-bottom: 1px solid #eee;
+}
+
+.status-invoices-list .history-item:last-child {
+    border-bottom: none;
+}
+
+.status-invoices-list .no-items {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+    font-style: italic;
+}
+
 /* Mobile responsive adjustments */
 @media (max-width: 600px) {
     .category-header {
@@ -2056,5 +2174,19 @@ select:focus {
 
     .expense-item-notes {
         padding-left: 0;
+    }
+
+    .status-header {
+        padding: 12px;
+        flex-wrap: wrap;
+    }
+
+    .status-count {
+        order: 5;
+        margin-top: 4px;
+    }
+
+    .status-total {
+        order: 4;
     }
 }
