@@ -166,7 +166,7 @@ export function deleteExpense(id) {
     expenses = expenses.filter(exp => exp.id !== id);
     setStoredExpenses(expenses);
     displayExpenses();
-    
+
     // Update dashboard if available
     if (typeof window.updateDashboard === 'function') {
         window.updateDashboard();
@@ -255,7 +255,7 @@ function deleteExpenseDirectly(id) {
         expenses = expenses.filter(exp => exp.id !== id);
         setStoredExpenses(expenses);
         displayExpenses();
-        
+
         // Update dashboard if available
         if (typeof window.updateDashboard === 'function') {
             window.updateDashboard();

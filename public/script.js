@@ -35,6 +35,11 @@ window.addEventListener('DOMContentLoaded', () => {
     setupExpenses();
     setupDashboard();
     setupAccessories();
+
+    // Make invoice functions available globally for inline HTML handlers
+    window.togglePaymentStatus = togglePaymentStatus;
+    window.deleteInvoice = deleteInvoice;
+    window.regenerateInvoice = regenerateInvoice;
 });
 
 // Set today's date as default
@@ -440,7 +445,7 @@ function setupNavigation() {
     if (navDropdown) {
         navDropdown.addEventListener('change', (e) => {
             const value = e.target.value;
-            switch(value) {
+            switch (value) {
                 case 'invoice':
                     switchView(invoiceFormView, newInvoiceBtn);
                     populateCustomerList();
@@ -646,10 +651,10 @@ function showOverdueAlert(overdueInvoices) {
         </div>
         <div class="overdue-list">
             ${overdueInvoices.map(inv => {
-                const deliveredDate = new Date(inv.dateDelivered);
-                const days = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
-                return `<div class="overdue-item">Invoice #${inv.invoiceNumber} - ${inv.customerName} - $${inv.amount} (${days} days overdue)</div>`;
-            }).join('')}
+        const deliveredDate = new Date(inv.dateDelivered);
+        const days = Math.floor((new Date() - deliveredDate) / (1000 * 60 * 60 * 24));
+        return `<div class="overdue-item">Invoice #${inv.invoiceNumber} - ${inv.customerName} - $${inv.amount} (${days} days overdue)</div>`;
+    }).join('')}
         </div>
     `;
 
@@ -932,7 +937,7 @@ function getDateRange(period, year) {
     const now = new Date();
     let start, end;
 
-    switch(period) {
+    switch (period) {
         case 'weekly':
             // Get current week (Monday to Sunday)
             const dayOfWeek = now.getDay();
@@ -1167,28 +1172,28 @@ function setupReceiptUpload() {
     previewImage.addEventListener('load', () => {
         const previewContainer = document.getElementById('previewContainer');
         const cropOverlay = document.getElementById('cropOverlay');
-        
+
         if (cropOverlay && previewContainer) {
             // Get container dimensions for proper positioning
             const containerRect = previewContainer.getBoundingClientRect();
             const imgRect = previewImage.getBoundingClientRect();
-            
+
             // Calculate relative position within container
             const relativeLeft = imgRect.left - containerRect.left;
             const relativeTop = imgRect.top - containerRect.top;
-            
+
             // Show crop overlay with default 80% coverage of the image
             const left = relativeLeft + imgRect.width * 0.1;
-            const top = relativeTop + imgRect.height * 0.1; 
+            const top = relativeTop + imgRect.height * 0.1;
             const width = imgRect.width * 0.8;
             const height = imgRect.height * 0.8;
-            
+
             cropOverlay.style.display = 'block';
             cropOverlay.style.left = `${left}px`;
             cropOverlay.style.top = `${top}px`;
             cropOverlay.style.width = `${width}px`;
             cropOverlay.style.height = `${height}px`;
-            
+
             // Add resize handles
             cropOverlay.innerHTML = `
                 <div class="resize-handle handle-nw"></div>
@@ -1200,23 +1205,23 @@ function setupReceiptUpload() {
                 <div class="resize-handle handle-sw"></div>
                 <div class="resize-handle handle-w"></div>
             `;
-            
+
             console.log('Resize handles added to crop overlay');
             console.log('Crop overlay handles count:', cropOverlay.querySelectorAll('.resize-handle').length);
-            
+
             // Store crop rectangle data
-            window.cropRect = { 
-                left, 
-                top, 
-                width, 
-                height, 
+            window.cropRect = {
+                left,
+                top,
+                width,
+                height,
                 imgLeft: relativeLeft,
                 imgTop: relativeTop,
                 imgWidth: imgRect.width,
                 imgHeight: imgRect.height,
-                containerRect 
+                containerRect
             };
-            
+
             console.log('Crop overlay initialized:', window.cropRect);
         }
     });
@@ -1233,9 +1238,9 @@ function setupReceiptUpload() {
         cropOverlay.addEventListener('mousedown', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
             console.log('Mouse down on:', e.target.className);
-            
+
             if (e.target.classList.contains('resize-handle')) {
                 isResizing = true;
                 resizeDirection = e.target.className.split(' ').find(c => c.startsWith('handle-')).replace('handle-', '');
@@ -1254,14 +1259,14 @@ function setupReceiptUpload() {
         // Handle mouse move for drag and resize
         document.addEventListener('mousemove', (e) => {
             if (!window.cropRect) return;
-            
+
             const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
             const relativeX = e.clientX - containerRect.left;
             const relativeY = e.clientY - containerRect.top;
-            
+
             if (isDragging) {
                 const newLeft = Math.max(
-                    window.cropRect.imgLeft, 
+                    window.cropRect.imgLeft,
                     Math.min(
                         window.cropRect.imgLeft + window.cropRect.imgWidth - window.cropRect.width,
                         relativeX - dragOffset.x
@@ -1274,10 +1279,10 @@ function setupReceiptUpload() {
                         relativeY - dragOffset.y
                     )
                 );
-                
+
                 cropOverlay.style.left = `${newLeft}px`;
                 cropOverlay.style.top = `${newTop}px`;
-                
+
                 window.cropRect.left = newLeft;
                 window.cropRect.top = newTop;
             } else if (isResizing) {
@@ -1285,11 +1290,11 @@ function setupReceiptUpload() {
                 let newTop = window.cropRect.top;
                 let newWidth = window.cropRect.width;
                 let newHeight = window.cropRect.height;
-                
+
                 const minSize = 20;
                 const maxRight = window.cropRect.imgLeft + window.cropRect.imgWidth;
                 const maxBottom = window.cropRect.imgTop + window.cropRect.imgHeight;
-                
+
                 // Handle different resize directions
                 if (resizeDirection.includes('e')) {
                     newWidth = Math.max(minSize, Math.min(maxRight - newLeft, relativeX - newLeft));
@@ -1307,12 +1312,12 @@ function setupReceiptUpload() {
                     newHeight = newTop + newHeight - newTopPos;
                     newTop = newTopPos;
                 }
-                
+
                 cropOverlay.style.left = `${newLeft}px`;
                 cropOverlay.style.top = `${newTop}px`;
                 cropOverlay.style.width = `${newWidth}px`;
                 cropOverlay.style.height = `${newHeight}px`;
-                
+
                 window.cropRect.left = newLeft;
                 window.cropRect.top = newTop;
                 window.cropRect.width = newWidth;
@@ -1337,9 +1342,9 @@ function setupReceiptUpload() {
         cropOverlay.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
-            
+
             console.log('Touch start on:', e.target.className);
-            
+
             if (e.target.classList.contains('resize-handle')) {
                 isResizing = true;
                 resizeDirection = e.target.className.split(' ').find(c => c.startsWith('handle-')).replace('handle-', '');
@@ -1359,7 +1364,7 @@ function setupReceiptUpload() {
         document.addEventListener('touchmove', (e) => {
             if (!isDragging && !isResizing) return;
             e.preventDefault();
-            
+
             const touch = e.touches[0];
             const containerRect = document.getElementById('previewContainer').getBoundingClientRect();
             const relativeX = touch.clientX - containerRect.left;
@@ -1369,14 +1374,14 @@ function setupReceiptUpload() {
                 // Handle touch drag
                 let newLeft = relativeX - dragOffset.x;
                 let newTop = relativeY - dragOffset.y;
-                
+
                 // Constrain to image bounds
                 newLeft = Math.max(window.cropRect.imgLeft, Math.min(window.cropRect.imgLeft + window.cropRect.imgWidth - window.cropRect.width, newLeft));
                 newTop = Math.max(window.cropRect.imgTop, Math.min(window.cropRect.imgTop + window.cropRect.imgHeight - window.cropRect.height, newTop));
-                
+
                 cropOverlay.style.left = `${newLeft}px`;
                 cropOverlay.style.top = `${newTop}px`;
-                
+
                 window.cropRect.left = newLeft;
                 window.cropRect.top = newTop;
             } else if (isResizing) {
@@ -1385,11 +1390,11 @@ function setupReceiptUpload() {
                 let newTop = window.cropRect.top;
                 let newWidth = window.cropRect.width;
                 let newHeight = window.cropRect.height;
-                
+
                 const minSize = 30; // Larger for touch
                 const maxRight = window.cropRect.imgLeft + window.cropRect.imgWidth;
                 const maxBottom = window.cropRect.imgTop + window.cropRect.imgHeight;
-                
+
                 if (resizeDirection.includes('e')) {
                     newWidth = Math.max(minSize, Math.min(maxRight - newLeft, relativeX - newLeft));
                 }
@@ -1406,12 +1411,12 @@ function setupReceiptUpload() {
                     newHeight = newTop + newHeight - newTopPos;
                     newTop = newTopPos;
                 }
-                
+
                 cropOverlay.style.left = `${newLeft}px`;
                 cropOverlay.style.top = `${newTop}px`;
                 cropOverlay.style.width = `${newWidth}px`;
                 cropOverlay.style.height = `${newHeight}px`;
-                
+
                 window.cropRect.left = newLeft;
                 window.cropRect.top = newTop;
                 window.cropRect.width = newWidth;
@@ -1588,41 +1593,41 @@ async function applyCrop(file) {
 
         const img = new Image();
         const url = URL.createObjectURL(file);
-        
+
         img.onload = () => {
             try {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                
+
                 // Calculate crop coordinates relative to original image dimensions
                 const scaleX = img.naturalWidth / window.cropRect.imgWidth;
                 const scaleY = img.naturalHeight / window.cropRect.imgHeight;
-                
+
                 // Convert crop overlay position to image-relative coordinates
                 const cropX = (window.cropRect.left - window.cropRect.imgLeft) * scaleX;
                 const cropY = (window.cropRect.top - window.cropRect.imgTop) * scaleY;
                 const cropW = window.cropRect.width * scaleX;
                 const cropH = window.cropRect.height * scaleY;
-                
+
                 // Ensure crop coordinates are within image bounds
                 const finalX = Math.max(0, Math.min(img.naturalWidth - 1, cropX));
                 const finalY = Math.max(0, Math.min(img.naturalHeight - 1, cropY));
                 const finalW = Math.max(1, Math.min(img.naturalWidth - finalX, cropW));
                 const finalH = Math.max(1, Math.min(img.naturalHeight - finalY, cropH));
-                
-                console.log('Crop parameters:', { 
+
+                console.log('Crop parameters:', {
                     original: { w: img.naturalWidth, h: img.naturalHeight },
                     crop: { x: finalX, y: finalY, w: finalW, h: finalH },
                     scale: { x: scaleX, y: scaleY }
                 });
-                
+
                 // Set canvas to cropped size
                 canvas.width = finalW;
                 canvas.height = finalH;
-                
+
                 // Draw cropped portion
                 ctx.drawImage(img, finalX, finalY, finalW, finalH, 0, 0, finalW, finalH);
-                
+
                 // Convert to blob and create new file
                 canvas.toBlob((blob) => {
                     if (blob) {
@@ -1639,12 +1644,12 @@ async function applyCrop(file) {
                 URL.revokeObjectURL(url);
             }
         };
-        
+
         img.onerror = () => {
             URL.revokeObjectURL(url);
             reject(new Error('Failed to load image'));
         };
-        
+
         img.src = url;
     });
 }
@@ -1670,12 +1675,12 @@ function parseReceiptData(text) {
     // Enhanced vendor extraction with more businesses
     const knownBusinesses = {
         'fuel': ['PILOT', 'FLYING J', 'LOVES', "LOVE'S", 'TA', 'TRAVEL CENTER', 'PETRO',
-                 'SHELL', 'EXXON', 'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON',
-                 'VALERO', 'CIRCLE K', 'WAWA', 'SHEETZ', 'CASEY', 'MAVERIK', 'KWIK TRIP',
-                 'PHILLIPS 66', 'SINCLAIR', 'ARCO', 'TEXACO', 'GETTY', 'SUNOCO'],
+            'SHELL', 'EXXON', 'CHEVRON', 'BP', 'MOBIL', 'SPEEDWAY', 'MARATHON',
+            'VALERO', 'CIRCLE K', 'WAWA', 'SHEETZ', 'CASEY', 'MAVERIK', 'KWIK TRIP',
+            'PHILLIPS 66', 'SINCLAIR', 'ARCO', 'TEXACO', 'GETTY', 'SUNOCO'],
         'food': ['MCDONALD', 'SUBWAY', 'BURGER KING', 'WENDY', 'TACO BELL', 'KFC',
-                 'PIZZA HUT', 'DOMINO', 'DAIRY QUEEN', 'ARBYS', 'SONIC', 'IHOP',
-                 'DENNY', 'WAFFLE HOUSE', 'CRACKER BARREL'],
+            'PIZZA HUT', 'DOMINO', 'DAIRY QUEEN', 'ARBYS', 'SONIC', 'IHOP',
+            'DENNY', 'WAFFLE HOUSE', 'CRACKER BARREL'],
         'maintenance': ['TIRE', 'AUTO', 'SERVICE', 'REPAIR', 'LUBE', 'QUICK CHANGE'],
         'other': ['WALMART', 'TARGET', 'AMAZON', 'COSTCO', 'SAM\'S CLUB']
     };
@@ -1690,26 +1695,26 @@ function parseReceiptData(text) {
                     if (line.toUpperCase().includes(business)) {
                         // Clean the vendor name - remove extra info
                         let cleanVendor = line;
-                        
+
                         // Remove phone numbers
                         cleanVendor = cleanVendor.replace(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '').trim();
-                        
+
                         // Remove common address indicators
                         cleanVendor = cleanVendor.replace(/\d+\s+(ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT)/gi, '').trim();
-                        
+
                         // Remove zip codes
                         cleanVendor = cleanVendor.replace(/\b\d{5}(-\d{4})?\b/g, '').trim();
-                        
+
                         // Remove state abbreviations at end
                         cleanVendor = cleanVendor.replace(/\b[A-Z]{2}\s*$/g, '').trim();
-                        
+
                         // Remove store numbers like "#123" or "STORE #123"
                         cleanVendor = cleanVendor.replace(/STORE\s*#?\d+/gi, '').trim();
                         cleanVendor = cleanVendor.replace(/#\d+/g, '').trim();
-                        
+
                         // Remove extra whitespace and limit length
                         cleanVendor = cleanVendor.replace(/\s+/g, ' ').trim();
-                        
+
                         // If too long, try to extract just the business name part
                         if (cleanVendor.length > 40) {
                             const businessMatch = cleanVendor.match(new RegExp(`.*?${business}[^\\d]*`, 'i'));
@@ -1717,10 +1722,10 @@ function parseReceiptData(text) {
                                 cleanVendor = businessMatch[0].replace(/[^\w\s'-]/g, ' ').trim();
                             }
                         }
-                        
+
                         // Final cleanup and length limit
                         cleanVendor = cleanVendor.substring(0, 35).trim();
-                        
+
                         if (cleanVendor.length > 3) {
                             vendor = cleanVendor;
                             category = cat;
@@ -1739,10 +1744,10 @@ function parseReceiptData(text) {
     if (vendor === 'Unknown Vendor') {
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             let line = lines[i].trim();
-            
+
             // Skip obvious non-vendor lines
-            if (line.length < 3 || line.length > 60 || 
-                line.match(/^\d+$/) || 
+            if (line.length < 3 || line.length > 60 ||
+                line.match(/^\d+$/) ||
                 line.toUpperCase().includes('RECEIPT') ||
                 line.toUpperCase().includes('PHONE') ||
                 line.toUpperCase().includes('THANK YOU') ||
@@ -1752,30 +1757,30 @@ function parseReceiptData(text) {
                 line.match(/^\$?\d+\.\d{2}$/)) {
                 continue;
             }
-            
+
             // Clean the potential vendor name
             let cleanVendor = line;
-            
+
             // Remove phone numbers
             cleanVendor = cleanVendor.replace(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '').trim();
-            
+
             // Remove addresses
             cleanVendor = cleanVendor.replace(/\d+\s+(ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE)/gi, '').trim();
-            
+
             // Remove zip codes and state codes
             cleanVendor = cleanVendor.replace(/\b\d{5}(-\d{4})?\b/g, '').trim();
             cleanVendor = cleanVendor.replace(/\b[A-Z]{2}\s*$/g, '').trim();
-            
+
             // Remove store numbers
             cleanVendor = cleanVendor.replace(/STORE\s*#?\d+/gi, '').trim();
             cleanVendor = cleanVendor.replace(/#\d+/g, '').trim();
-            
+
             // Clean up extra characters and whitespace
             cleanVendor = cleanVendor.replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ').trim();
-            
+
             // Limit length
             cleanVendor = cleanVendor.substring(0, 35).trim();
-            
+
             if (cleanVendor.length > 3) {
                 vendor = cleanVendor;
                 console.log(`Heuristic vendor (cleaned): "${vendor}" (from "${line}")`);
@@ -1786,7 +1791,7 @@ function parseReceiptData(text) {
 
     // Enhanced amount extraction with better patterns
     const amounts = [];
-    
+
     // Priority patterns (more specific)
     const priorityPatterns = [
         /(?:TOTAL|AMOUNT DUE|GRAND TOTAL|FINAL TOTAL)[\s:]*\$?\s*(\d{1,5}\.\d{2})/gi,
@@ -1853,7 +1858,7 @@ function parseReceiptData(text) {
         while ((match = pattern.exec(cleanText)) !== null && !foundDate) {
             try {
                 console.log(`Date match found: ${match[0]}`);
-                
+
                 if (match[0].match(/JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/i)) {
                     // Month name format
                     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
