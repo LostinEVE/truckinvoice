@@ -600,12 +600,23 @@ function forceDataSync() {
     promises.push(
         database.ref(`users/${userId}/invoices`).once('value').then((snapshot) => {
             const data = snapshot.val();
-            console.log('Force sync - Invoices:', data);
+            console.log('Force sync - Invoices raw data:', data);
+            console.log('Force sync - Invoices type:', typeof data);
             if (data) {
                 const invoicesArray = Object.values(data);
-                localStorage.setItem('invoiceHistory', JSON.stringify(invoicesArray));
-                console.log('Saved', invoicesArray.length, 'invoices to localStorage');
+                console.log('Force sync - Invoices array:', invoicesArray);
+                console.log('Force sync - Invoices count:', invoicesArray.length);
+                const jsonStr = JSON.stringify(invoicesArray);
+                console.log('Force sync - Invoices JSON length:', jsonStr.length);
+                localStorage.setItem('invoiceHistory', jsonStr);
+                // Verify it was saved
+                const saved = localStorage.getItem('invoiceHistory');
+                console.log('Force sync - Verified saved invoiceHistory:', saved ? saved.substring(0, 100) + '...' : 'NULL');
+            } else {
+                console.warn('Force sync - No invoice data returned from Firebase');
             }
+        }).catch((err) => {
+            console.error('Force sync - Invoice fetch error:', err);
         })
     );
 
@@ -671,3 +682,81 @@ function forceDataSync() {
 window.saveInvoiceToCloud = saveInvoiceToCloud;
 window.deleteInvoiceFromCloud = deleteInvoiceFromCloud;
 window.forceDataSync = forceDataSync;
+
+// Debug function to check localStorage
+window.debugLocalStorage = function () {
+    console.log('=== DEBUG localStorage ===');
+    const invoiceHistory = localStorage.getItem('invoiceHistory');
+    const expenses = localStorage.getItem('expenses');
+    const companyName = localStorage.getItem('companyName');
+
+    console.log('companyName:', companyName);
+    console.log('invoiceHistory:', invoiceHistory);
+    console.log('expenses:', expenses);
+
+    let invoices = [];
+    let expenseList = [];
+
+    try {
+        if (invoiceHistory) {
+            invoices = JSON.parse(invoiceHistory);
+            console.log('Parsed invoices count:', invoices.length);
+            console.log('Invoice IDs:', invoices.map(i => i.id));
+        }
+    } catch (e) {
+        console.error('Error parsing invoiceHistory:', e);
+    }
+
+    try {
+        if (expenses) {
+            expenseList = JSON.parse(expenses);
+            console.log('Parsed expenses count:', expenseList.length);
+        }
+    } catch (e) {
+        console.error('Error parsing expenses:', e);
+    }
+
+    alert(`Debug Info:\n\nCompany: ${companyName || 'Not set'}\nInvoices: ${invoices.length}\nExpenses: ${expenseList.length}\n\nCheck console for details.`);
+
+    // Try to call displayHistory directly
+    console.log('Attempting to call displayHistory...');
+    console.log('window.displayHistory type:', typeof window.displayHistory);
+
+    // Check historyList element BEFORE calling displayHistory
+    const historyList = document.getElementById('historyList');
+    console.log('historyList element:', historyList);
+    console.log('historyList innerHTML BEFORE displayHistory:', historyList ? historyList.innerHTML.substring(0, 200) : 'NULL');
+
+    // Check if skipDisplayHistory is set
+    console.log('window.skipDisplayHistory:', window.skipDisplayHistory);
+    // Reset skipDisplayHistory in case it got stuck
+    window.skipDisplayHistory = false;
+
+    if (typeof window.displayHistory === 'function') {
+        try {
+            window.displayHistory();
+            console.log('displayHistory called successfully');
+            // Check what historyList looks like AFTER
+            console.log('historyList innerHTML AFTER displayHistory:', historyList ? historyList.innerHTML.substring(0, 200) : 'NULL');
+        } catch (e) {
+            console.error('Error calling displayHistory:', e);
+        }
+    } else {
+        console.error('window.displayHistory is NOT a function!');
+    }
+
+    // Check dashboard year selector
+    const yearSelect = document.getElementById('dashboardYear');
+    console.log('dashboardYear element:', yearSelect);
+    console.log('dashboardYear innerHTML:', yearSelect ? yearSelect.innerHTML : 'NULL');
+
+    // Try to manually populate dashboard
+    if (typeof window.updateDashboard === 'function') {
+        console.log('Calling updateDashboard...');
+        try {
+            window.updateDashboard();
+        } catch (e) {
+            console.error('Error calling updateDashboard:', e);
+        }
+    }
+};

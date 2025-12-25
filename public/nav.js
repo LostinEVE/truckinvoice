@@ -54,6 +54,33 @@ function showView(view) {
     if (view === 'tools' && typeof window.setupDriverTools === 'function') {
         window.setupDriverTools();
     }
+
+    // Refresh data when switching views - with retry for module loading
+    function callWhenReady(fnName, retries = 5) {
+        if (typeof window[fnName] === 'function') {
+            console.log('showView: Calling', fnName);
+            try {
+                window[fnName]();
+            } catch (e) {
+                console.error('Error calling', fnName, ':', e);
+            }
+        } else if (retries > 0) {
+            console.log('showView:', fnName, 'not ready, retrying in 100ms...');
+            setTimeout(() => callWhenReady(fnName, retries - 1), 100);
+        } else {
+            console.warn('showView:', fnName, 'never became available');
+        }
+    }
+
+    if (view === 'history') {
+        callWhenReady('displayHistory');
+    }
+    if (view === 'expenses') {
+        callWhenReady('displayExpenses');
+    }
+    if (view === 'dashboard') {
+        callWhenReady('updateDashboard');
+    }
 }
 
 // Global navigation function for onclick handlers

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'truckinvoice-v26-tool-tabs-fix';
+const CACHE_NAME = 'truckinvoice-v32-cleanup';
 const urlsToCache = [
   './index.html',
   './style.css',

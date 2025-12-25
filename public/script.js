@@ -530,13 +530,20 @@ function setupNavigation() {
 }
 
 function displayHistory(searchTerm = '') {
+    console.log('displayHistory called with searchTerm:', searchTerm);
+    console.log('window.skipDisplayHistory:', window.skipDisplayHistory);
+
     if (window.skipDisplayHistory) {
         console.log('Skipping displayHistory - payment update in progress');
         return;
     }
 
     const invoices = getInvoiceHistory();
+    console.log('displayHistory - invoices from getInvoiceHistory:', invoices);
+    console.log('displayHistory - invoices count:', invoices.length);
+
     const historyList = document.getElementById('historyList');
+    console.log('displayHistory - historyList element:', historyList);
 
     let filteredInvoices = invoices;
     if (searchTerm) {
