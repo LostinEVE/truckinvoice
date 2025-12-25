@@ -211,63 +211,87 @@ function syncInvoices(userId) {
 
         console.log('Firebase sync triggered...');
         const data = snapshot.val();
-        if (data) {
-            // Convert object to array
-            const remoteInvoices = Object.values(data);
+        
+        // Get local invoices
+        const localData = localStorage.getItem('invoiceHistory');
+        const localInvoices = localData ? JSON.parse(localData) : [];
+        const localMap = new Map(localInvoices.map(inv => [inv.id, inv]));
 
-            // Get local invoices
-            const localData = localStorage.getItem('invoiceHistory');
-            const localInvoices = localData ? JSON.parse(localData) : [];
+        if (!data) {
+            // No remote data - push all local to cloud
+            localInvoices.forEach(inv => saveInvoiceToCloud(inv));
+            return;
+        }
 
-            // Create maps by id
-            const remoteMap = new Map(remoteInvoices.map(inv => [inv.id, inv]));
-            const localMap = new Map(localInvoices.map(inv => [inv.id, inv]));
+        // Convert remote object to array
+        const remoteInvoices = Object.values(data);
+        const remoteMap = new Map(remoteInvoices.map(inv => [inv.id, inv]));
 
-            // Merge all invoices
-            const mergedMap = new Map();
+        // Merge: start with local as the base, then carefully add/update from remote
+        const mergedMap = new Map(localMap);
+        const invoicesToPushToCloud = [];
 
-            // Add all remote invoices first
-            for (const [id, invoice] of remoteMap) {
-                mergedMap.set(id, invoice);
-            }
+        for (const [id, remoteInv] of remoteMap) {
+            const localInv = localMap.get(id);
 
-            // Check local invoices for more recent payment status updates
-            for (const [id, localInv] of localMap) {
-                const remoteInv = remoteMap.get(id);
-                if (!remoteInv) {
-                    // Local only - keep it
+            if (!localInv) {
+                // Remote only - add it
+                mergedMap.set(id, remoteInv);
+            } else if (localInv.paymentStatus !== remoteInv.paymentStatus) {
+                // Payment status conflict - resolve by timestamp
+                const localHasUpdate = !!localInv.paymentStatusUpdated;
+                const remoteHasUpdate = !!remoteInv.paymentStatusUpdated;
+
+                // If local has a paymentStatusUpdated but remote doesn't, local wins
+                if (localHasUpdate && !remoteHasUpdate) {
+                    console.log(`Invoice ${id}: Local wins (has paymentStatusUpdated, remote doesn't)`);
                     mergedMap.set(id, localInv);
-                } else if (localInv.paymentStatus !== remoteInv.paymentStatus) {
-                    // Payment status differs - use the one with the most recent paymentStatusUpdated
-                    const localUpdateTime = new Date(localInv.paymentStatusUpdated || localInv.timestamp || 0).getTime();
-                    const remoteUpdateTime = new Date(remoteInv.paymentStatusUpdated || remoteInv.timestamp || 0).getTime();
-
-                    console.log('Payment status conflict for invoice', id,
-                        'local:', localInv.paymentStatus, localUpdateTime,
-                        'remote:', remoteInv.paymentStatus, remoteUpdateTime);
-
-                    if (localUpdateTime > remoteUpdateTime) {
-                        // Local is newer - keep local and push to cloud
-                        console.log('Keeping local version (newer)');
+                    invoicesToPushToCloud.push(localInv);
+                } 
+                // If remote has it but local doesn't, remote wins
+                else if (!localHasUpdate && remoteHasUpdate) {
+                    console.log(`Invoice ${id}: Remote wins (has paymentStatusUpdated, local doesn't)`);
+                    mergedMap.set(id, remoteInv);
+                } 
+                // Both have timestamps - compare them
+                else if (localHasUpdate && remoteHasUpdate) {
+                    const localTime = new Date(localInv.paymentStatusUpdated).getTime();
+                    const remoteTime = new Date(remoteInv.paymentStatusUpdated).getTime();
+                    
+                    if (localTime >= remoteTime) {
+                        console.log(`Invoice ${id}: Local wins (newer timestamp)`);
                         mergedMap.set(id, localInv);
-                        // Re-sync this invoice to cloud
-                        saveInvoiceToCloud(localInv);
+                        invoicesToPushToCloud.push(localInv);
                     } else {
-                        console.log('Keeping remote version (newer)');
+                        console.log(`Invoice ${id}: Remote wins (newer timestamp)`);
+                        mergedMap.set(id, remoteInv);
                     }
+                } 
+                // Neither has timestamp - prefer local (user's most recent action)
+                else {
+                    console.log(`Invoice ${id}: Local wins (no timestamps, preferring local)`);
+                    // Add timestamp now so future syncs work correctly
+                    localInv.paymentStatusUpdated = new Date().toISOString();
+                    mergedMap.set(id, localInv);
+                    invoicesToPushToCloud.push(localInv);
                 }
             }
+            // If payment status is the same, keep local (it's already in mergedMap)
+        }
 
-            const mergedArray = Array.from(mergedMap.values());
+        // Convert to array and save
+        const mergedArray = Array.from(mergedMap.values());
+        localStorage.setItem('invoiceHistory', JSON.stringify(mergedArray));
 
-            // Update localStorage with merged data
-            localStorage.setItem('invoiceHistory', JSON.stringify(mergedArray));
+        // Push any local wins to cloud
+        invoicesToPushToCloud.forEach(inv => {
+            console.log('Pushing local invoice to cloud:', inv.id);
+            saveInvoiceToCloud(inv);
+        });
 
-            // Update UI if on history page
-            if (document.getElementById('historyView') &&
-                document.getElementById('historyView').classList.contains('active')) {
-                displayHistory();
-            }
+        // Update UI if on history page
+        if (document.getElementById('historyView')?.classList.contains('active')) {
+            displayHistory();
         }
     });
 }
