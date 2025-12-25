@@ -626,25 +626,40 @@ function forceDataSync() {
         console.log('Force sync complete! Refreshing UI...');
         showSyncStatus('synced', 'Force sync complete!');
 
-        // Force refresh all UI components
-        if (typeof loadCompanyInfo === 'function') {
-            loadCompanyInfo();
+        // Log what we saved to localStorage
+        console.log('localStorage invoiceHistory:', localStorage.getItem('invoiceHistory'));
+        console.log('localStorage expenses:', localStorage.getItem('expenses'));
+
+        // Force refresh all UI components using window. scope
+        if (typeof window.loadCompanyInfo === 'function') {
+            window.loadCompanyInfo();
             console.log('Company info UI refreshed');
-        }
-        if (typeof displayHistory === 'function') {
-            displayHistory();
-            console.log('Invoice history UI refreshed');
-        }
-        if (typeof displayExpenses === 'function') {
-            displayExpenses();
-            console.log('Expenses UI refreshed');
-        }
-        if (typeof updateDashboard === 'function') {
-            updateDashboard();
-            console.log('Dashboard UI refreshed');
+        } else {
+            console.warn('loadCompanyInfo not found on window');
         }
 
-        alert('Sync complete! Your data should now be visible.');
+        if (typeof window.displayHistory === 'function') {
+            window.displayHistory();
+            console.log('Invoice history UI refreshed');
+        } else {
+            console.warn('displayHistory not found on window');
+        }
+
+        if (typeof window.displayExpenses === 'function') {
+            window.displayExpenses();
+            console.log('Expenses UI refreshed');
+        } else {
+            console.warn('displayExpenses not found on window');
+        }
+
+        if (typeof window.updateDashboard === 'function') {
+            window.updateDashboard();
+            console.log('Dashboard UI refreshed');
+        } else {
+            console.warn('updateDashboard not found on window');
+        }
+
+        alert('Sync complete! Check console for details. Your data should now be visible.');
     }).catch((error) => {
         console.error('Force sync error:', error);
         showSyncStatus('error', 'Sync failed');

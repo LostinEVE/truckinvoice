@@ -231,5 +231,50 @@ window.saveTrucks = saveTrucks;
 window.renderTruckList = renderTruckList;
 window.updateAllTruckDropdowns = updateAllTruckDropdowns;
 
+// ======================================
+// DRIVER TOOLS TAB SWITCHING (Global)
+// ======================================
+
+function switchToolTab(targetTool) {
+    console.log('switchToolTab called:', targetTool);
+
+    const toolTabs = document.querySelectorAll('.tool-tab');
+    const toolPanels = document.querySelectorAll('.tool-panel');
+
+    // Update tabs
+    toolTabs.forEach(t => {
+        t.classList.remove('active');
+        if (t.dataset.tool === targetTool) {
+            t.classList.add('active');
+        }
+    });
+
+    // Update panels
+    toolPanels.forEach(panel => {
+        panel.classList.remove('active');
+        if (panel.id === targetTool + 'Tool') {
+            panel.classList.add('active');
+            console.log('Activated panel:', panel.id);
+        }
+    });
+}
+
+// Set up tool tab click handlers when DOM is ready
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('Setting up tool tab handlers from nav.js');
+    const toolTabs = document.querySelectorAll('.tool-tab');
+    console.log('Found', toolTabs.length, 'tool tabs');
+
+    toolTabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+            const targetTool = this.dataset.tool;
+            console.log('Tool tab clicked:', targetTool);
+            switchToolTab(targetTool);
+        });
+    });
+});
+
+window.switchToolTab = switchToolTab;
+
 console.log('nav.js loaded. window.navigateTo:', typeof window.navigateTo);
 console.log('nav.js: openTruckModal available:', typeof window.openTruckModal);
