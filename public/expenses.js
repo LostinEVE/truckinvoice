@@ -88,45 +88,190 @@ export function displayExpenses(searchTerm = '') {
         return;
     }
 
-    expensesList.innerHTML = filteredExpenses.map(expense => `
-        <div class="history-item expense-item">
-            <div class="history-header">
-                <div class="history-title">
-                    <strong>${categoryLabels[expense.category]}</strong>
-                    <span class="history-date">${new Date(expense.date).toLocaleDateString()}</span>
+    // Group expenses by category
+    const groupedExpenses = groupExpensesByCategory(filteredExpenses);
+
+    // Category display names and icons
+    const categoryInfo = {
+        'fuel': { name: 'Fuel', icon: '⛽' },
+        'maintenance': { name: 'Maintenance & Repairs', icon: '🔧' },
+        'tolls': { name: 'Tolls & Parking', icon: '🅿️' },
+        'food': { name: 'Food & Meals', icon: '🍔' },
+        'insurance': { name: 'Insurance', icon: '🛡️' },
+        'permits': { name: 'Permits & Licenses', icon: '📋' },
+        'truck_payment': { name: 'Truck Payment/Lease', icon: '🚛' },
+        'supplies': { name: 'Supplies', icon: '📦' },
+        'drivers_pay': { name: 'Drivers Pay', icon: '👤' },
+        'other': { name: 'Other', icon: '📎' }
+    };
+
+    let html = '<div class="expense-categories-accordion">';
+
+    // Sort categories alphabetically by display name
+    const sortedCategories = Object.keys(groupedExpenses).sort((a, b) => {
+        const nameA = categoryInfo[a]?.name || a;
+        const nameB = categoryInfo[b]?.name || b;
+        return nameA.localeCompare(nameB);
+    });
+
+    for (const category of sortedCategories) {
+        const categoryExpenses = groupedExpenses[category];
+        const info = categoryInfo[category] || { name: category, icon: '📎' };
+        const categoryTotal = categoryExpenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+
+        html += `
+            <div class="expense-category-group">
+                <button type="button" class="category-header" data-category="${category}" aria-expanded="false">
+                    <span class="category-icon">${info.icon}</span>
+                    <span class="category-name">${info.name}</span>
+                    <span class="category-count">${categoryExpenses.length} expense${categoryExpenses.length !== 1 ? 's' : ''}</span>
+                    <span class="category-total">$${categoryTotal.toFixed(2)}</span>
+                    <span class="category-chevron">▼</span>
+                </button>
+                <div class="category-expenses-list" data-category-list="${category}">
+                    ${renderCategoryExpenses(categoryExpenses)}
                 </div>
-                <div class="history-amount expense-amount">$${expense.amount}</div>
             </div>
-            <div class="history-details">
-                <div><strong>Vendor:</strong> ${expense.vendor}</div>
-                ${Array.isArray(expense.items) && expense.items.length ? `
-                <div><strong>Items:</strong></div>
-                <div>
-                    ${expense.items.map(it => `<div>- ${it.description} — $${it.price}</div>`).join('')}
-                </div>` : ''}
-                ${expense.notes ? `
-                <details>
-                    <summary>View Details</summary>
-                    <div class="section-description" style="white-space: pre-wrap;">${expense.notes}</div>
-                </details>` : ''}
+        `;
+    }
+
+    html += '</div>';
+    expensesList.innerHTML = html;
+
+    // Add click handlers for accordion headers
+    document.querySelectorAll('.category-header').forEach(header => {
+        header.addEventListener('click', toggleCategoryAccordion);
+    });
+
+    // Add click handlers for delete buttons
+    document.querySelectorAll('.delete-expense-btn').forEach(btn => {
+        btn.addEventListener('click', handleDeleteExpense);
+    });
+
+    // Add click handlers for edit buttons
+    document.querySelectorAll('.edit-expense-btn').forEach(btn => {
+        btn.addEventListener('click', handleEditExpense);
+    });
+}
+
+// Get all expenses from storage
+function getAllExpenses() {
+    const expenses = localStorage.getItem('expenses');
+    return expenses ? JSON.parse(expenses) : [];
+}
+
+// Get expense by ID
+function getExpenseById(id) {
+    const expenses = getAllExpenses();
+    return expenses.find(exp => exp.id === id);
+}
+
+// Delete expense by ID
+function deleteExpense(id) {
+    let expenses = getAllExpenses();
+    expenses = expenses.filter(exp => exp.id !== id);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+
+    // Also sync with Firebase if available
+    if (window.syncExpenses) {
+        window.syncExpenses();
+    }
+}
+
+// Group expenses by category
+function groupExpensesByCategory(expenses) {
+    return expenses.reduce((groups, expense) => {
+        const category = expense.category || 'other';
+        if (!groups[category]) {
+            groups[category] = [];
+        }
+        groups[category].push(expense);
+        return groups;
+    }, {});
+}
+
+// Render expenses within a category
+function renderCategoryExpenses(expenses) {
+    // Sort by date (newest first)
+    const sorted = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return sorted.map(expense => `
+        <div class="expense-item" data-id="${expense.id}">
+            <div class="expense-item-main">
+                <div class="expense-item-date">${formatDate(expense.date)}</div>
+                <div class="expense-item-vendor">${escapeHtml(expense.vendor || 'Unknown')}</div>
+                <div class="expense-item-amount">$${parseFloat(expense.amount).toFixed(2)}</div>
             </div>
-            <div class="history-actions">
-                <button class="btn-delete" onclick="deleteExpense('${expense.id}')">Delete</button>
+            ${expense.notes ? `<div class="expense-item-notes">${escapeHtml(expense.notes)}</div>` : ''}
+            <div class="expense-item-actions">
+                <button type="button" class="edit-expense-btn" data-id="${expense.id}" title="Edit expense">✏️</button>
+                <button type="button" class="delete-expense-btn" data-id="${expense.id}" title="Delete expense">🗑️</button>
             </div>
         </div>
     `).join('');
 }
 
-export function deleteExpense(id) {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+// Toggle accordion open/closed
+function toggleCategoryAccordion(event) {
+    const header = event.currentTarget;
+    const category = header.dataset.category;
+    const list = document.querySelector(`[data-category-list="${category}"]`);
+    const isExpanded = header.getAttribute('aria-expanded') === 'true';
 
-    let expenses = getExpenses();
-    expenses = expenses.filter(exp => exp.id !== id);
-    setStoredExpenses(expenses);
-    displayExpenses();
-    if (typeof updateDashboard === 'function') updateDashboard();
+    // Toggle this category
+    header.setAttribute('aria-expanded', !isExpanded);
+    list.classList.toggle('expanded', !isExpanded);
 
-    if (typeof deleteExpenseFromCloud === 'function') {
-        deleteExpenseFromCloud(id);
+    // Update chevron
+    const chevron = header.querySelector('.category-chevron');
+    chevron.textContent = isExpanded ? '▼' : '▲';
+}
+
+// Helper function to format date
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Handle delete expense
+function handleDeleteExpense(event) {
+    const id = event.currentTarget.dataset.id;
+    if (confirm('Are you sure you want to delete this expense?')) {
+        deleteExpense(id);
+        renderExpenses();
+    }
+}
+
+// Handle edit expense (you can expand this as needed)
+function handleEditExpense(event) {
+    const id = event.currentTarget.dataset.id;
+    const expense = getExpenseById(id);
+    if (expense) {
+        // Populate the form with expense data for editing
+        document.getElementById('expenseDate').value = expense.date || '';
+        document.getElementById('expenseAmount').value = expense.amount || '';
+        document.getElementById('expenseCategory').value = expense.category || '';
+        document.getElementById('expenseVendor').value = expense.vendor || '';
+        document.getElementById('expenseNotes').value = expense.notes || '';
+
+        // Store the ID being edited
+        document.getElementById('expenseForm').dataset.editingId = id;
+
+        // Update button text
+        const submitBtn = document.querySelector('#expenseForm .btn-generate');
+        if (submitBtn) {
+            submitBtn.textContent = 'Update Expense';
+        }
+
+        // Scroll to form
+        document.getElementById('expenseForm').scrollIntoView({ behavior: 'smooth' });
     }
 }

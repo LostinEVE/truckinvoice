@@ -5,8 +5,10 @@
     width: 100%;
     max-height: 75vh;
     overflow: auto;
-    -ms-overflow-style: none; /* IE/Edge */
-    touch-action: pan-y;      /* allow vertical scroll on mobile */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+    touch-action: pan-y;
+    /* allow vertical scroll on mobile */
 }
 
 /* Custom scrollbar for Chrome, Safari, Edge */
@@ -14,43 +16,95 @@
     width: 8px;
     background: transparent;
 }
+
 #previewContainer::-webkit-scrollbar-thumb {
     background: #c3c3c3;
     border-radius: 4px;
 }
+
 #previewContainer::-webkit-scrollbar-thumb:hover {
     background: #a0a0a0;
 }
+
 #previewImage {
     max-width: 100%;
     display: block;
 }
+
 #cropOverlay {
     position: absolute;
     border: 2px dashed #0b79d0;
-    box-shadow: 0 0 0 2000px rgba(0,0,0,0.10); /* lighter mask so page stays readable */
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.10);
+    /* lighter mask so page stays readable */
     display: none;
-    pointer-events: auto;  /* only overlay captures interactions */
-    touch-action: none;    /* prevent accidental pinch/zoom within overlay */
-    z-index: 10;           /* sit above image but below surrounding controls */
+    pointer-events: auto;
+    /* only overlay captures interactions */
+    touch-action: none;
+    /* prevent accidental pinch/zoom within overlay */
+    z-index: 10;
+    /* sit above image but below surrounding controls */
 }
+
 .resize-handle {
     position: absolute;
-    width: 20px;  /* Larger for touch */
-    height: 20px; /* Larger for touch */
+    width: 20px;
+    /* Larger for touch */
+    height: 20px;
+    /* Larger for touch */
     background: #0b79d0;
     border: 2px solid white;
     border-radius: 3px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
-.handle-nw { left: -10px; top: -10px; cursor: nwse-resize; }
-.handle-n { left: calc(50% - 10px); top: -10px; cursor: ns-resize; }
-.handle-ne { right: -10px; top: -10px; cursor: nesw-resize; }
-.handle-e { right: -10px; top: calc(50% - 10px); cursor: ew-resize; }
-.handle-se { right: -10px; bottom: -10px; cursor: nwse-resize; }
-.handle-s { left: calc(50% - 10px); bottom: -10px; cursor: ns-resize; }
-.handle-sw { left: -10px; bottom: -10px; cursor: nesw-resize; }
-.handle-w { left: -10px; top: calc(50% - 10px); cursor: ew-resize; }
+
+.handle-nw {
+    left: -10px;
+    top: -10px;
+    cursor: nwse-resize;
+}
+
+.handle-n {
+    left: calc(50% - 10px);
+    top: -10px;
+    cursor: ns-resize;
+}
+
+.handle-ne {
+    right: -10px;
+    top: -10px;
+    cursor: nesw-resize;
+}
+
+.handle-e {
+    right: -10px;
+    top: calc(50% - 10px);
+    cursor: ew-resize;
+}
+
+.handle-se {
+    right: -10px;
+    bottom: -10px;
+    cursor: nwse-resize;
+}
+
+.handle-s {
+    left: calc(50% - 10px);
+    bottom: -10px;
+    cursor: ns-resize;
+}
+
+.handle-sw {
+    left: -10px;
+    bottom: -10px;
+    cursor: nesw-resize;
+}
+
+.handle-w {
+    left: -10px;
+    top: calc(50% - 10px);
+    cursor: ew-resize;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -307,7 +361,7 @@ body {
     background: white;
     padding: 30px;
     border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 h1 {
@@ -507,7 +561,7 @@ input:focus {
 
 .history-item:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .history-header {
@@ -762,7 +816,7 @@ select:focus {
 
 .expense-item:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .expense-header {
@@ -886,7 +940,7 @@ select:focus {
     background: white;
     border-radius: 8px;
     padding: 25px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     align-items: center;
@@ -895,7 +949,7 @@ select:focus {
 
 .dashboard-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 .income-card {
@@ -969,7 +1023,7 @@ select:focus {
     background: white;
     border-radius: 8px;
     border-left: 4px solid #667eea;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .breakdown-category {
@@ -993,7 +1047,7 @@ select:focus {
     background: white;
     border-radius: 8px;
     padding: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .month-header {
@@ -1214,7 +1268,7 @@ select:focus {
     margin-top: 20px;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .receipt-preview img {
@@ -1244,7 +1298,9 @@ select:focus {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 #ocrMessage {
@@ -1399,8 +1455,15 @@ select:focus {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
 }
 
 /* Overdue invoice item */
@@ -1467,6 +1530,7 @@ select:focus {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1550,7 +1614,7 @@ select:focus {
     color: white;
     font-weight: 600;
     font-size: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     opacity: 0;
     transform: translateY(20px);
     transition: all 0.3s ease-out;
@@ -1576,7 +1640,7 @@ select:focus {
     background: white;
     border-radius: 8px;
     padding: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     border-left: 4px solid #667eea;
 }
 
@@ -1806,5 +1870,191 @@ select:focus {
 
     .btn-remove-accessory {
         width: 100%;
+    }
+}
+
+/* Expense Categories Accordion */
+.expense-categories-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.expense-category-group {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.category-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    text-align: left;
+    transition: background-color 0.2s;
+    gap: 10px;
+}
+
+.category-header:hover {
+    background: #e9ecef;
+}
+
+.category-header[aria-expanded="true"] {
+    background: #e3f2fd;
+    border-bottom: 1px solid #ddd;
+}
+
+.category-icon {
+    font-size: 1.2rem;
+    width: 28px;
+    text-align: center;
+}
+
+.category-name {
+    flex: 1;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.category-count {
+    font-size: 0.85rem;
+    color: #666;
+    background: #e0e0e0;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.category-total {
+    font-weight: 600;
+    color: #27ae60;
+    min-width: 80px;
+    text-align: right;
+}
+
+.category-chevron {
+    font-size: 0.8rem;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.category-expenses-list {
+    display: none;
+    padding: 0;
+    background: #fff;
+}
+
+.category-expenses-list.expanded {
+    display: block;
+}
+
+.expense-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    gap: 6px;
+}
+
+.expense-item:last-child {
+    border-bottom: none;
+}
+
+.expense-item:hover {
+    background: #f8f9fa;
+}
+
+.expense-item-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.expense-item-date {
+    font-size: 0.85rem;
+    color: #666;
+    min-width: 90px;
+}
+
+.expense-item-vendor {
+    flex: 1;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.expense-item-amount {
+    font-weight: 600;
+    color: #e74c3c;
+    min-width: 80px;
+    text-align: right;
+}
+
+.expense-item-notes {
+    font-size: 0.85rem;
+    color: #666;
+    font-style: italic;
+    padding-left: 102px;
+}
+
+.expense-item-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 4px;
+}
+
+.expense-item-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.expense-item-actions button:hover {
+    background: #e0e0e0;
+}
+
+.edit-expense-btn:hover {
+    background: #e3f2fd !important;
+}
+
+.delete-expense-btn:hover {
+    background: #ffebee !important;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 600px) {
+    .category-header {
+        padding: 10px 12px;
+        flex-wrap: wrap;
+    }
+
+    .category-count {
+        order: 5;
+    }
+
+    .category-total {
+        order: 4;
+    }
+
+    .expense-item-main {
+        flex-wrap: wrap;
+    }
+
+    .expense-item-date {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+
+    .expense-item-notes {
+        padding-left: 0;
     }
 }
