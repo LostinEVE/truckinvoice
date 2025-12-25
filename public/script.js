@@ -31,6 +31,8 @@ window.addEventListener('DOMContentLoaded', () => {
     setupDashboard();
     setupAccessories();
     setupTipJar();
+    // Populate all truck dropdowns app-wide
+    populateTruckDropdowns();
 });
 
 // Set today's date as default
@@ -1644,6 +1646,9 @@ function populateTruckDropdowns() {
     const trucks = getTrucks();
     const receiptTruckSelect = document.getElementById('receiptTruck');
     const filterTruckSelect = document.getElementById('filterReceiptTruck');
+    const invoiceTruckSelect = document.getElementById('invoiceTruck');
+    const expenseTruckSelect = document.getElementById('expenseTruck');
+    const fuelTruckSelect = document.getElementById('fuelTruck');
 
     const options = trucks.map(t =>
         `<option value="${t.id}">${escapeHtml(t.name)}${t.unit ? ` (#${escapeHtml(t.unit)})` : ''}</option>`
@@ -1655,6 +1660,18 @@ function populateTruckDropdowns() {
 
     if (filterTruckSelect) {
         filterTruckSelect.innerHTML = '<option value="">All Trucks</option>' + options;
+    }
+
+    if (invoiceTruckSelect) {
+        invoiceTruckSelect.innerHTML = '<option value="">Select Truck...</option>' + options;
+    }
+
+    if (expenseTruckSelect) {
+        expenseTruckSelect.innerHTML = '<option value="">All Trucks / No Selection</option>' + options;
+    }
+
+    if (fuelTruckSelect) {
+        fuelTruckSelect.innerHTML = '<option value="">All Trucks / No Selection</option>' + options;
     }
 }
 
@@ -3126,4 +3143,15 @@ function setupTipJar() {
 window.deletePerDiemEntry = deletePerDiemEntry;
 window.completeReminder = completeReminder;
 window.deleteReminder = deleteReminder;
+
+// Truck management functions
+window.openTruckModal = openTruckModal;
+window.closeTruckModal = closeTruckModal;
+window.addTruck = addTruck;
+window.deleteTruck = deleteTruck;
+
+// Receipt functions
+window.viewReceiptPhoto = viewReceiptPhoto;
+window.deleteReceipt = deleteReceipt;
+window.closeReceiptModal = closeReceiptModal;
 
