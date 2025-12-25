@@ -590,6 +590,7 @@ function togglePaymentStatus(id, isPaid) {
     const invoice = invoices.find(inv => inv.id === id);
     if (invoice) {
         invoice.paymentStatus = isPaid ? 'paid' : 'unpaid';
+        invoice.paymentStatusUpdated = new Date().toISOString(); // Track when payment status changed
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
         displayHistory();
 
@@ -600,7 +601,7 @@ function togglePaymentStatus(id, isPaid) {
 
         // Show confirmation message
         const message = isPaid
-            ? `Invoice #${invoice.invoiceNumber} marked as PAID Γ£ô`
+            ? `Invoice #${invoice.invoiceNumber} marked as PAID ✓`
             : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
         showPaymentToast(message, isPaid);
     }

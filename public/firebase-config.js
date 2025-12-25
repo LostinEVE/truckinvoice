@@ -3,14 +3,14 @@
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCt1nxGPblkmCo_4qSMvWnWIhm0I6RXtqY",
-  authDomain: "otrtruckulator.firebaseapp.com",
-  databaseURL: "https://otrtruckulator-default-rtdb.firebaseio.com",
-  projectId: "otrtruckulator",
-  storageBucket: "otrtruckulator.firebasestorage.app",
-  messagingSenderId: "929218453570",
-  appId: "1:929218453570:web:18f9dfd1823f36a4848ddb",
-  measurementId: "G-YEGYH7GYEF"
+    apiKey: "AIzaSyCt1nxGPblkmCo_4qSMvWnWIhm0I6RXtqY",
+    authDomain: "otrtruckulator.firebaseapp.com",
+    databaseURL: "https://otrtruckulator-default-rtdb.firebaseio.com",
+    projectId: "otrtruckulator",
+    storageBucket: "otrtruckulator.firebasestorage.app",
+    messagingSenderId: "929218453570",
+    appId: "1:929218453570:web:18f9dfd1823f36a4848ddb",
+    measurementId: "G-YEGYH7GYEF"
 };
 
 // Initialize Firebase
@@ -206,13 +206,52 @@ function syncInvoices(userId) {
         const data = snapshot.val();
         if (data) {
             // Convert object to array
-            const invoicesArray = Object.values(data);
+            const remoteInvoices = Object.values(data);
 
-            // Update localStorage with remote data
-            localStorage.setItem('invoiceHistory', JSON.stringify(invoicesArray));
+            // Get local invoices
+            const localData = localStorage.getItem('invoiceHistory');
+            const localInvoices = localData ? JSON.parse(localData) : [];
+
+            // Create maps by id
+            const remoteMap = new Map(remoteInvoices.map(inv => [inv.id, inv]));
+            const localMap = new Map(localInvoices.map(inv => [inv.id, inv]));
+
+            // Merge all invoices
+            const mergedMap = new Map();
+
+            // Add all remote invoices first
+            for (const [id, invoice] of remoteMap) {
+                mergedMap.set(id, invoice);
+            }
+
+            // Check local invoices for more recent payment status updates
+            for (const [id, localInv] of localMap) {
+                const remoteInv = remoteMap.get(id);
+                if (!remoteInv) {
+                    // Local only - keep it
+                    mergedMap.set(id, localInv);
+                } else if (localInv.paymentStatus !== remoteInv.paymentStatus) {
+                    // Payment status differs - use the one with the most recent paymentStatusUpdated
+                    const localUpdateTime = new Date(localInv.paymentStatusUpdated || localInv.timestamp || 0).getTime();
+                    const remoteUpdateTime = new Date(remoteInv.paymentStatusUpdated || remoteInv.timestamp || 0).getTime();
+
+                    if (localUpdateTime > remoteUpdateTime) {
+                        // Local is newer - keep local and push to cloud
+                        mergedMap.set(id, localInv);
+                        // Re-sync this invoice to cloud
+                        saveInvoiceToCloud(localInv);
+                    }
+                }
+            }
+
+            const mergedArray = Array.from(mergedMap.values());
+
+            // Update localStorage with merged data
+            localStorage.setItem('invoiceHistory', JSON.stringify(mergedArray));
 
             // Update UI if on history page
-            if (document.getElementById('historyView').classList.contains('active')) {
+            if (document.getElementById('historyView') &&
+                document.getElementById('historyView').classList.contains('active')) {
                 displayHistory();
             }
         }
@@ -328,7 +367,7 @@ function showSyncStatus(status, message) {
     syncStatus.classList.remove('status-synced', 'status-syncing', 'status-error', 'status-offline');
 
     // Add appropriate status class and icon
-    switch(status) {
+    switch (status) {
         case 'synced':
             statusIcon.textContent = '✓';
             syncStatus.classList.add('status-synced');
@@ -361,7 +400,7 @@ function showAuthError(message) {
 }
 
 function getAuthErrorMessage(errorCode) {
-    switch(errorCode) {
+    switch (errorCode) {
         case 'auth/invalid-email':
             return 'Invalid email address.';
         case 'auth/user-disabled':
