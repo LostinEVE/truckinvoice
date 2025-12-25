@@ -610,9 +610,11 @@ function togglePaymentStatus(id, isPaid) {
         updatePaymentStatusUI(id, isPaid, invoice.invoiceNumber);
 
         // Sync to cloud if enabled
-        if (typeof saveInvoiceToCloud === 'function') {
+        if (typeof window.saveInvoiceToCloud === 'function') {
             console.log('Calling saveInvoiceToCloud...');
-            saveInvoiceToCloud(invoice);
+            window.saveInvoiceToCloud(invoice);
+        } else {
+            console.log('saveInvoiceToCloud not available - cloud sync disabled');
         }
 
         // Show confirmation message

@@ -531,3 +531,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initializeFirebase();
     setupAuthUI();
 });
+
+// Expose functions globally for use in other scripts
+window.saveInvoiceToCloud = saveInvoiceToCloud;
+window.deleteInvoiceFromCloud = deleteInvoiceFromCloud;
