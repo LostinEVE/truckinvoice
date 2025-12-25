@@ -204,11 +204,12 @@ function syncInvoices(userId) {
     // Listen for remote changes
     invoicesRef.on('value', (snapshot) => {
         // Skip sync if we're in the middle of updating payment status locally
-        if (window.isUpdatingPaymentStatus) {
+        if (window.isUpdatingPaymentStatus || window.skipDisplayHistory) {
             console.log('Skipping sync - payment status update in progress');
             return;
         }
 
+        console.log('Firebase sync triggered...');
         const data = snapshot.val();
         if (data) {
             // Convert object to array

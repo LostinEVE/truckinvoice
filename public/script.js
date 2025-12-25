@@ -504,6 +504,11 @@ function setupNavigation() {
 }
 
 function displayHistory(searchTerm = '') {
+    // Skip if we're in the middle of a payment status update
+    if (window.skipDisplayHistory) {
+        console.log('Skipping displayHistory - payment update in progress');
+        return;
+    }
     const invoices = getInvoiceHistory();
     const historyList = document.getElementById('historyList');
 
@@ -590,6 +595,7 @@ function togglePaymentStatus(id, isPaid) {
 
     // Set a flag to prevent Firebase sync from overwriting during this update
     window.isUpdatingPaymentStatus = true;
+    window.skipDisplayHistory = true;
 
     let invoices = getInvoiceHistory();
     const invoice = invoices.find(inv => inv.id === id);
@@ -597,11 +603,15 @@ function togglePaymentStatus(id, isPaid) {
         invoice.paymentStatus = isPaid ? 'paid' : 'unpaid';
         invoice.paymentStatusUpdated = new Date().toISOString(); // Track when payment status changed
 
-        console.log('Saving invoice with payment status:', invoice.paymentStatus);
+        console.log('Saving invoice with payment status:', invoice.paymentStatus, 'timestamp:', invoice.paymentStatusUpdated);
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
+
+        // Update the UI immediately without full re-render
+        updatePaymentStatusUI(id, isPaid, invoice.invoiceNumber);
 
         // Sync to cloud if enabled
         if (typeof saveInvoiceToCloud === 'function') {
+            console.log('Calling saveInvoiceToCloud...');
             saveInvoiceToCloud(invoice);
         }
 
@@ -611,15 +621,37 @@ function togglePaymentStatus(id, isPaid) {
             : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
         showPaymentToast(message, isPaid);
 
-        // Clear the flag after a short delay to allow Firebase to sync
+        // Clear the flags after a longer delay to ensure Firebase has fully synced
         setTimeout(() => {
             window.isUpdatingPaymentStatus = false;
-            console.log('Payment status update complete');
-        }, 2000);
+            window.skipDisplayHistory = false;
+            console.log('Payment status update complete, flags cleared');
+        }, 5000);
     } else {
         window.isUpdatingPaymentStatus = false;
+        window.skipDisplayHistory = false;
         console.error('Invoice not found:', id);
     }
+}
+
+// Update the UI in-place without full re-render
+function updatePaymentStatusUI(id, isPaid, invoiceNumber) {
+    // Find the checkbox by its onchange attribute
+    const checkboxes = document.querySelectorAll('.payment-checkbox input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        if (checkbox.getAttribute('onchange').includes(id)) {
+            checkbox.checked = isPaid;
+            // Update the status badge too
+            const historyItem = checkbox.closest('.history-item');
+            if (historyItem) {
+                const statusBadge = historyItem.querySelector('.payment-status');
+                if (statusBadge) {
+                    statusBadge.className = `payment-status ${isPaid ? 'paid' : 'unpaid'}`;
+                    statusBadge.textContent = isPaid ? '✓ Paid' : 'Unpaid';
+                }
+            }
+        }
+    });
 }
 
 function checkOverdueInvoices(invoices) {
