@@ -1,14 +1,9 @@
 ﻿// Initialize EmailJS
 emailjs.init('flEWLVoiJ1uMBZgnW');
 
-// Import from expenses module and make functions globally available
+// Import category labels from expenses module
 import('./expenses.js').then(module => {
     window.categoryLabels = module.categoryLabels;
-    window.displayExpenses = module.displayExpenses;
-    window.setupExpenses = module.setupExpenses;
-    window.getExpenses = module.getExpenses;
-    window.saveExpense = module.saveExpense;
-    window.deleteExpense = module.deleteExpense;
 });
 
 // Register service worker for PWA
@@ -35,11 +30,6 @@ window.addEventListener('DOMContentLoaded', () => {
     setupExpenses();
     setupDashboard();
     setupAccessories();
-
-    // Make invoice functions available globally for inline HTML handlers
-    window.togglePaymentStatus = togglePaymentStatus;
-    window.deleteInvoice = deleteInvoice;
-    window.regenerateInvoice = regenerateInvoice;
 });
 
 // Set today's date as default
@@ -501,14 +491,35 @@ function setupNavigation() {
     searchInput.addEventListener('input', (e) => {
         displayHistory(e.target.value);
     });
+
+    // Event delegation for history list actions
+    document.getElementById('historyList').addEventListener('click', (e) => {
+        const target = e.target;
+        const id = target.dataset.id;
+
+        if (target.dataset.action === 'regenerate' && id) {
+            regenerateInvoice(id);
+        } else if (target.dataset.action === 'delete' && id) {
+            deleteInvoice(id);
+        }
+    });
+
+    document.getElementById('historyList').addEventListener('change', (e) => {
+        if (e.target.classList.contains('payment-toggle')) {
+            const id = e.target.dataset.id;
+            const isChecked = e.target.checked;
+            console.log('Payment toggle clicked:', id, isChecked);
+            togglePaymentStatus(id, isChecked);
+        }
+    });
 }
 
 function displayHistory(searchTerm = '') {
-    // Skip if we're in the middle of a payment status update
     if (window.skipDisplayHistory) {
         console.log('Skipping displayHistory - payment update in progress');
         return;
     }
+
     const invoices = getInvoiceHistory();
     const historyList = document.getElementById('historyList');
 
@@ -527,7 +538,6 @@ function displayHistory(searchTerm = '') {
         return;
     }
 
-    // Check for overdue invoices and show alert
     checkOverdueInvoices(filteredInvoices);
 
     historyList.innerHTML = filteredInvoices.map(invoice => {
@@ -537,15 +547,15 @@ function displayHistory(searchTerm = '') {
         const isOverdue = !isPaid && daysSinceDelivery >= 30;
 
         return `
-        <div class="history-item ${isOverdue ? 'overdue' : ''}">
+        <div class="history-item ${isOverdue ? 'overdue' : ''}" data-invoice-id="${invoice.id}">
             <div class="history-header">
                 <div class="history-title">
                     <strong>Invoice #${invoice.invoiceNumber}</strong>
                     <span class="history-date">${new Date(invoice.timestamp).toLocaleDateString()}</span>
                     <span class="payment-status ${isPaid ? 'paid' : 'unpaid'}">
-                        ${isPaid ? 'Γ£ô Paid' : 'Unpaid'}
+                        ${isPaid ? '✓ Paid' : 'Unpaid'}
                     </span>
-                    ${isOverdue ? '<span class="overdue-badge">ΓÜá 30+ Days Overdue</span>' : ''}
+                    ${isOverdue ? '<span class="overdue-badge">⚠ 30+ Days Overdue</span>' : ''}
                 </div>
                 <div class="history-amount">$${invoice.amount}</div>
             </div>
@@ -557,11 +567,11 @@ function displayHistory(searchTerm = '') {
             </div>
             <div class="history-actions">
                 <label class="payment-checkbox">
-                    <input type="checkbox" ${isPaid ? 'checked' : ''} onchange="togglePaymentStatus('${invoice.id}', this.checked)">
+                    <input type="checkbox" class="payment-toggle" data-id="${invoice.id}" ${isPaid ? 'checked' : ''}>
                     <span>Mark as Paid</span>
                 </label>
-                <button class="btn-regenerate" onclick="regenerateInvoice('${invoice.id}')">Regenerate PDF</button>
-                <button class="btn-delete" onclick="deleteInvoice('${invoice.id}')">Delete</button>
+                <button class="btn-regenerate" data-action="regenerate" data-id="${invoice.id}">Regenerate PDF</button>
+                <button class="btn-delete" data-action="delete" data-id="${invoice.id}">Delete</button>
             </div>
         </div>
     `;
@@ -591,69 +601,24 @@ function deleteInvoice(id) {
 }
 
 function togglePaymentStatus(id, isPaid) {
-    console.log('togglePaymentStatus called:', id, isPaid);
-
-    // Set a flag to prevent Firebase sync from overwriting during this update
-    window.isUpdatingPaymentStatus = true;
-    window.skipDisplayHistory = true;
-
     let invoices = getInvoiceHistory();
     const invoice = invoices.find(inv => inv.id === id);
     if (invoice) {
         invoice.paymentStatus = isPaid ? 'paid' : 'unpaid';
-        invoice.paymentStatusUpdated = new Date().toISOString(); // Track when payment status changed
-
-        console.log('Saving invoice with payment status:', invoice.paymentStatus, 'timestamp:', invoice.paymentStatusUpdated);
         localStorage.setItem('invoiceHistory', JSON.stringify(invoices));
-
-        // Update the UI immediately without full re-render
-        updatePaymentStatusUI(id, isPaid, invoice.invoiceNumber);
+        displayHistory();
 
         // Sync to cloud if enabled
-        if (typeof window.saveInvoiceToCloud === 'function') {
-            console.log('Calling saveInvoiceToCloud...');
-            window.saveInvoiceToCloud(invoice);
-        } else {
-            console.log('saveInvoiceToCloud not available - cloud sync disabled');
+        if (typeof saveInvoiceToCloud === 'function') {
+            saveInvoiceToCloud(invoice);
         }
 
         // Show confirmation message
         const message = isPaid
-            ? `Invoice #${invoice.invoiceNumber} marked as PAID ✓`
+            ? `Invoice #${invoice.invoiceNumber} marked as PAID Γ£ô`
             : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
         showPaymentToast(message, isPaid);
-
-        // Clear the flags after a longer delay to ensure Firebase has fully synced
-        setTimeout(() => {
-            window.isUpdatingPaymentStatus = false;
-            window.skipDisplayHistory = false;
-            console.log('Payment status update complete, flags cleared');
-        }, 5000);
-    } else {
-        window.isUpdatingPaymentStatus = false;
-        window.skipDisplayHistory = false;
-        console.error('Invoice not found:', id);
     }
-}
-
-// Update the UI in-place without full re-render
-function updatePaymentStatusUI(id, isPaid, invoiceNumber) {
-    // Find the checkbox by its onchange attribute
-    const checkboxes = document.querySelectorAll('.payment-checkbox input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        if (checkbox.getAttribute('onchange').includes(id)) {
-            checkbox.checked = isPaid;
-            // Update the status badge too
-            const historyItem = checkbox.closest('.history-item');
-            if (historyItem) {
-                const statusBadge = historyItem.querySelector('.payment-status');
-                if (statusBadge) {
-                    statusBadge.className = `payment-status ${isPaid ? 'paid' : 'unpaid'}`;
-                    statusBadge.textContent = isPaid ? '✓ Paid' : 'Unpaid';
-                }
-            }
-        }
-    });
 }
 
 function checkOverdueInvoices(invoices) {
@@ -879,9 +844,123 @@ function setupCalculator() {
     }
 }
 
-// Expense Tracking - Now handled by expenses.js module
-// The setupExpenses, displayExpenses, saveExpense, getExpenses, and deleteExpense
-// functions are imported from expenses.js and made available globally
+// Expense Tracking Functions
+function setupExpenses() {
+    const expenseForm = document.getElementById('expenseForm');
+    const expenseDate = document.getElementById('expenseDate');
+    const searchExpenses = document.getElementById('searchExpenses');
+
+    // Set today's date as default for expenses
+    expenseDate.value = new Date().toISOString().split('T')[0];
+
+    expenseForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const expense = {
+            id: Date.now().toString(),
+            date: document.getElementById('expenseDate').value,
+            amount: parseFloat(document.getElementById('expenseAmount').value).toFixed(2),
+            category: document.getElementById('expenseCategory').value,
+            vendor: document.getElementById('expenseVendor').value,
+            notes: document.getElementById('expenseNotes').value,
+            timestamp: new Date().toISOString()
+        };
+
+        saveExpense(expense);
+        expenseForm.reset();
+        expenseDate.value = new Date().toISOString().split('T')[0];
+        displayExpenses();
+        alert('Expense added successfully!');
+    });
+
+    searchExpenses.addEventListener('input', (e) => {
+        displayExpenses(e.target.value);
+    });
+}
+
+function saveExpense(expense) {
+    const expenses = getExpenses();
+    expenses.unshift(expense);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+
+    // Sync to cloud if enabled
+    if (typeof saveExpenseToCloud === 'function') {
+        saveExpenseToCloud(expense);
+    }
+}
+
+function getExpenses() {
+    const expenses = localStorage.getItem('expenses');
+    return expenses ? JSON.parse(expenses) : [];
+}
+
+function displayExpenses(searchTerm = '') {
+    const expenses = getExpenses();
+    const expensesList = document.getElementById('expensesList');
+
+    let filteredExpenses = expenses;
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredExpenses = expenses.filter(exp =>
+            exp.vendor.toLowerCase().includes(term) ||
+            exp.category.toLowerCase().includes(term) ||
+            exp.notes.toLowerCase().includes(term)
+        );
+    }
+
+    if (filteredExpenses.length === 0) {
+        expensesList.innerHTML = '<div class="no-history">No expenses found</div>';
+        return;
+    }
+
+    // Use imported category labels
+    const categoryLabels = window.categoryLabels || {
+        fuel: 'Fuel',
+        maintenance: 'Maintenance & Repairs',
+        tolls: 'Tolls & Parking',
+        food: 'Food & Meals',
+        insurance: 'Insurance',
+        permits: 'Permits & Licenses',
+        truck_payment: 'Truck Payment/Lease',
+        supplies: 'Supplies',
+        drivers_pay: 'Drivers Pay',
+        other: 'Other'
+    };
+
+    expensesList.innerHTML = filteredExpenses.map(expense => `
+        <div class="history-item expense-item">
+            <div class="history-header">
+                <div class="history-title">
+                    <strong>${categoryLabels[expense.category]}</strong>
+                    <span class="history-date">${new Date(expense.date).toLocaleDateString()}</span>
+                </div>
+                <div class="history-amount expense-amount">$${expense.amount}</div>
+            </div>
+            <div class="history-details">
+                <div><strong>Vendor:</strong> ${expense.vendor}</div>
+                ${expense.notes ? `<div><strong>Notes:</strong> ${expense.notes}</div>` : ''}
+            </div>
+            <div class="history-actions">
+                <button class="btn-delete" onclick="deleteExpense('${expense.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function deleteExpense(id) {
+    if (confirm('Are you sure you want to delete this expense?')) {
+        let expenses = getExpenses();
+        expenses = expenses.filter(exp => exp.id !== id);
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+        displayExpenses();
+        updateDashboard();
+
+        // Delete from cloud if enabled
+        if (typeof deleteExpenseFromCloud === 'function') {
+            deleteExpenseFromCloud(id);
+        }
+    }
+}
 
 // Dashboard Functions
 function setupDashboard() {
