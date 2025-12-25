@@ -289,7 +289,8 @@
                                 </select>
                             </div>
                             <div class="form-group truck-manage-btn-container">
-                                <button type="button" id="manageTrucksBtn" class="btn-secondary btn-small">⚙️ Manage
+                                <button type="button" id="manageTrucksBtn" class="btn-secondary btn-small"
+                                    onclick="openTruckModal()">⚙️ Manage
                                     Trucks</button>
                             </div>
                         </div>
@@ -861,7 +862,8 @@
                         <input type="text" id="newTruckName" placeholder="Truck name (e.g., Truck 1, Blue Pete)">
                         <input type="text" id="newTruckUnit" placeholder="Unit # (optional)">
                     </div>
-                    <button type="button" id="addTruckBtn" class="btn-generate">➕ Add Truck</button>
+                    <button type="button" id="addTruckBtn" class="btn-generate" onclick="addTruck()">➕ Add
+                        Truck</button>
                 </div>
                 <div class="truck-list-section">
                     <h4>Your Trucks</h4>
