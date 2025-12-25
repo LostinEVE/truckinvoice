@@ -89,154 +89,173 @@ function formatDate(dateString) {
 document.getElementById('invoiceForm').addEventListener('submit', (e) => {
     e.preventDefault();
 
-    // Save company info
-    saveCompanyInfo();
+    try {
+        // Save company info
+        saveCompanyInfo();
 
-    // Get form values
-    const invoiceNumber = document.getElementById('invoiceNumber').value;
-    const invoiceDate = formatDate(document.getElementById('invoiceDate').value);
-    const customerName = document.getElementById('customerName').value;
-    const dateDelivered = formatDate(document.getElementById('dateDelivered').value);
-    const loadNumber = document.getElementById('loadNumber').value;
-    const amount = parseFloat(document.getElementById('amount').value).toFixed(2);
-    const companyName = document.getElementById('companyName').value;
-    const companyAddress = document.getElementById('companyAddress').value;
-    const carrierId = document.getElementById('carrierId').value;
-    const userEmail = document.getElementById('userEmail').value;
+        // Get form values
+        const invoiceNumber = document.getElementById('invoiceNumber').value;
+        const invoiceDate = formatDate(document.getElementById('invoiceDate').value);
+        const customerName = document.getElementById('customerName').value;
+        const dateDelivered = formatDate(document.getElementById('dateDelivered').value);
+        const loadNumber = document.getElementById('loadNumber').value;
+        const amount = parseFloat(document.getElementById('amount').value).toFixed(2);
+        const companyName = document.getElementById('companyName').value;
+        const companyAddress = document.getElementById('companyAddress').value;
+        const carrierId = document.getElementById('carrierId').value;
+        const userEmail = document.getElementById('userEmail').value;
 
-    // Get product information if available
-    const productDescription = document.getElementById('productDescription').value.trim();
-    const pieceCount = document.getElementById('pieceCount').value;
-    const ratePerPiece = document.getElementById('ratePerPiece').value;
+        // Get product information if available
+        const productDescription = document.getElementById('productDescription').value.trim();
+        const pieceCount = document.getElementById('pieceCount').value;
+        const ratePerPiece = document.getElementById('ratePerPiece').value;
 
-    // Get accessories/additional charges
-    const accessories = getAccessories();
+        // Get accessories/additional charges
+        const accessories = getAccessories();
 
-    // Generate PDF
-    generateInvoicePDF({
-        invoiceNumber,
-        invoiceDate,
-        customerName,
-        dateDelivered,
-        loadNumber,
-        amount,
-        companyName,
-        companyAddress,
-        carrierId,
-        userEmail,
-        productDescription,
-        pieceCount,
-        ratePerPiece,
-        accessories
-    });
+        // Generate PDF
+        generateInvoicePDF({
+            invoiceNumber,
+            invoiceDate,
+            customerName,
+            dateDelivered,
+            loadNumber,
+            amount,
+            companyName,
+            companyAddress,
+            carrierId,
+            userEmail,
+            productDescription,
+            pieceCount,
+            ratePerPiece,
+            accessories
+        });
+    } catch (error) {
+        console.error('Error in invoice form submission:', error);
+        alert('Error creating invoice: ' + error.message);
+    }
 });
 
 function generateInvoicePDF(data) {
-    // First, generate the JPG image
-    generateInvoiceJPG(data);
+    try {
+        // First, generate the JPG image
+        try {
+            generateInvoiceJPG(data);
+        } catch (jpgError) {
+            // Continue even if JPG fails - it's not critical
+        }
 
-    // Then, generate the PDF
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'letter'
-    });
+        // Then, generate the PDF
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            throw new Error('jsPDF library not loaded');
+        }
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 25;
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'letter'
+        });
 
-    // Add border
-    doc.setLineWidth(0.5);
-    doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 25;
 
-    // Title "Invoice" - top right
-    doc.setFontSize(14);
-    doc.text('Invoice', pageWidth - margin, 25, { align: 'right' });
+        // Add border
+        doc.setLineWidth(0.5);
+        doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
 
-    // Main content - left aligned
-    doc.setFontSize(11);
-    let y = 45;
-    const lineHeight = 6;
+        // Title "Invoice" - top right
+        doc.setFontSize(14);
+        doc.text('Invoice', pageWidth - margin, 25, { align: 'right' });
 
-    doc.text(`Invoice #: ${data.invoiceNumber}`, margin, y);
-    y += lineHeight;
+        // Main content - left aligned
+        doc.setFontSize(11);
+        let y = 45;
+        const lineHeight = 6;
 
-    doc.text('Invoice Date:', margin, y);
-    y += lineHeight;
-    doc.text(`__${data.invoiceDate}____________`, margin, y);
-    y += lineHeight + 2;
-
-    doc.text(`Customer's Name ____${data.customerName}`, margin, y);
-    y += lineHeight;
-    doc.text('_______________', margin, y);
-    y += lineHeight + 2;
-
-    doc.text('Date Delivered:', margin, y);
-    y += lineHeight;
-    doc.text(`__${data.dateDelivered}____________`, margin, y);
-    y += lineHeight + 2;
-
-    doc.text('Load Number:', margin, y);
-    y += lineHeight;
-    doc.text(`__${data.loadNumber}______________`, margin, y);
-    y += lineHeight + 3;
-
-    // Add product description if available
-    if (data.productDescription && data.productDescription.length > 0) {
-        doc.text('Product Description:', margin, y);
+        doc.text(`Invoice #: ${data.invoiceNumber}`, margin, y);
         y += lineHeight;
-        doc.text(`__${data.productDescription}`, margin, y);
+
+        doc.text('Invoice Date:', margin, y);
         y += lineHeight;
-        if (data.pieceCount && data.ratePerPiece) {
-            doc.text(`(${data.pieceCount} pieces @ $${parseFloat(data.ratePerPiece).toFixed(2)}/piece)`, margin, y);
-            y += lineHeight + 2;
-        } else {
+        doc.text(`__${data.invoiceDate}____________`, margin, y);
+        y += lineHeight + 2;
+
+        doc.text(`Customer's Name ____${data.customerName}`, margin, y);
+        y += lineHeight;
+        doc.text('_______________', margin, y);
+        y += lineHeight + 2;
+
+        doc.text('Date Delivered:', margin, y);
+        y += lineHeight;
+        doc.text(`__${data.dateDelivered}____________`, margin, y);
+        y += lineHeight + 2;
+
+        doc.text('Load Number:', margin, y);
+        y += lineHeight;
+        doc.text(`__${data.loadNumber}______________`, margin, y);
+        y += lineHeight + 3;
+
+        // Add product description if available
+        if (data.productDescription && data.productDescription.length > 0) {
+            doc.text('Product Description:', margin, y);
+            y += lineHeight;
+            doc.text(`__${data.productDescription}`, margin, y);
+            y += lineHeight;
+            if (data.pieceCount && data.ratePerPiece) {
+                doc.text(`(${data.pieceCount} pieces @ $${parseFloat(data.ratePerPiece).toFixed(2)}/piece)`, margin, y);
+                y += lineHeight + 2;
+            } else {
+                y += 2;
+            }
+        }
+
+        // Add accessories/additional charges if available
+        if (data.accessories && data.accessories.length > 0) {
+            doc.text('Additional Charges:', margin, y);
+            y += lineHeight;
+            data.accessories.forEach(acc => {
+                doc.text(`  - ${acc.description}: $${acc.amount}`, margin, y);
+                y += lineHeight;
+            });
             y += 2;
         }
-    }
 
-    // Add accessories/additional charges if available
-    if (data.accessories && data.accessories.length > 0) {
-        doc.text('Additional Charges:', margin, y);
+        doc.text('Amount to be paid:', margin, y);
         y += lineHeight;
-        data.accessories.forEach(acc => {
-            doc.text(`  - ${acc.description}: $${acc.amount}`, margin, y);
-            y += lineHeight;
-        });
-        y += 2;
+        doc.text(`${data.amount}______________ Your`, margin, y);
+        y += lineHeight;
+
+        doc.text(`Company Name: _${data.companyName}`, margin, y);
+        y += lineHeight;
+        doc.text('________________ Your Company', margin, y);
+        y += lineHeight;
+
+        doc.text('Address:', margin, y);
+        y += lineHeight;
+        doc.text(`_${data.companyAddress}`, margin, y);
+        y += lineHeight;
+        doc.text('_____________________________', margin, y);
+        y += lineHeight;
+        doc.text('_____________________________', margin, y);
+        y += lineHeight + 8;
+
+        // Carrier ID
+        doc.text(`Carrier ID: _${data.carrierId}______________`, margin, y);
+
+        const fileName = `Invoice_${data.invoiceNumber}_${data.loadNumber}`;
+
+        // Save PDF locally
+        doc.save(`${fileName}.pdf`);
+
+        // Save invoice to history
+        saveInvoiceToHistory(data);
+
+    } catch (pdfError) {
+        console.error('Error generating PDF:', pdfError);
+        alert('Error generating PDF: ' + pdfError.message);
     }
-
-    doc.text('Amount to be paid:', margin, y);
-    y += lineHeight;
-    doc.text(`${data.amount}______________ Your`, margin, y);
-    y += lineHeight;
-
-    doc.text(`Company Name: _${data.companyName}`, margin, y);
-    y += lineHeight;
-    doc.text('________________ Your Company', margin, y);
-    y += lineHeight;
-
-    doc.text('Address:', margin, y);
-    y += lineHeight;
-    doc.text(`_${data.companyAddress}`, margin, y);
-    y += lineHeight;
-    doc.text('_____________________________', margin, y);
-    y += lineHeight;
-    doc.text('_____________________________', margin, y);
-    y += lineHeight + 8;
-
-    // Carrier ID
-    doc.text(`Carrier ID: _${data.carrierId}______________`, margin, y);
-
-    const fileName = `Invoice_${data.invoiceNumber}_${data.loadNumber}`;
-
-    // Save PDF locally
-    doc.save(`${fileName}.pdf`);
-
-    // Save invoice to history
-    saveInvoiceToHistory(data);
 }
 
 function generateInvoiceJPG(data) {
@@ -523,27 +542,18 @@ function setupNavigation() {
         if (e.target.classList.contains('payment-toggle')) {
             const id = e.target.dataset.id;
             const isChecked = e.target.checked;
-            console.log('Payment toggle clicked:', id, isChecked);
             togglePaymentStatus(id, isChecked);
         }
     });
 }
 
 function displayHistory(searchTerm = '') {
-    console.log('displayHistory called with searchTerm:', searchTerm);
-    console.log('window.skipDisplayHistory:', window.skipDisplayHistory);
-
     if (window.skipDisplayHistory) {
-        console.log('Skipping displayHistory - payment update in progress');
         return;
     }
 
     const invoices = getInvoiceHistory();
-    console.log('displayHistory - invoices from getInvoiceHistory:', invoices);
-    console.log('displayHistory - invoices count:', invoices.length);
-
     const historyList = document.getElementById('historyList');
-    console.log('displayHistory - historyList element:', historyList);
 
     let filteredInvoices = invoices;
     if (searchTerm) {
@@ -1124,12 +1134,7 @@ function formatExpenseDate(dateString) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Helper function to escape HTML
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// Helper function escapeHtml is defined later in the file (around line 2047)
 
 // Handle delete expense - called from accordion delete buttons
 function handleDeleteExpense(event) {
@@ -3168,4 +3173,3 @@ window.setupDriverTools = setupDriverTools;
 // Expose display functions for Force Sync
 window.displayHistory = displayHistory;
 window.loadCompanyInfo = loadCompanyInfo;
-

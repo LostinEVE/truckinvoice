@@ -38,31 +38,23 @@ export function populateYearSelector() {
 }
 
 export function updateDashboard() {
-    console.log('updateDashboard called');
-
     const yearSelect = document.getElementById('dashboardYear');
     const periodSelect = document.getElementById('dashboardPeriod');
-    console.log('yearSelect:', yearSelect);
-    console.log('periodSelect:', periodSelect);
 
     if (!yearSelect || !periodSelect) {
-        console.log('updateDashboard: missing yearSelect or periodSelect, returning');
         return;
     }
 
     // Make sure year selector is populated
     if (!yearSelect.innerHTML || yearSelect.options.length === 0) {
-        console.log('updateDashboard: yearSelect is empty, calling populateYearSelector');
         populateYearSelector();
     }
 
     const selectedYear = parseInt(yearSelect.value) || new Date().getFullYear();
     const selectedPeriod = periodSelect.value || 'ytd';
-    console.log('selectedYear:', selectedYear, 'selectedPeriod:', selectedPeriod);
 
     const invoices = getInvoiceHistory();
     const expenses = getExpenses();
-    console.log('updateDashboard - invoices:', invoices.length, 'expenses:', expenses.length);
 
     const dateRange = getDateRange(selectedPeriod, selectedYear);
 
