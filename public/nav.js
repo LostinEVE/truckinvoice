@@ -5,12 +5,13 @@ console.log('nav.js loading...');
 
 function showView(view) {
     console.log('showView called with:', view);
-    
+
     const viewMap = {
         invoice: 'invoiceFormView',
         receipt: 'receiptUploadView',
         history: 'historyView',
         expenses: 'expensesView',
+        tools: 'toolsView',
         dashboard: 'dashboardView'
     };
 
@@ -20,6 +21,7 @@ function showView(view) {
         console.log(`Element ${id}:`, el ? 'found' : 'NOT FOUND');
         if (el) {
             el.classList.toggle('active', key === view);
+            el.style.display = key === view ? 'block' : 'none';
         }
     });
 
@@ -28,6 +30,7 @@ function showView(view) {
         receipt: 'receiptUploadBtn',
         history: 'historyBtn',
         expenses: 'expensesBtn',
+        tools: 'toolsBtn',
         dashboard: 'dashboardBtn'
     };
 
@@ -46,12 +49,17 @@ function showView(view) {
     if (dropdown && dropdown.value !== view) {
         dropdown.value = view;
     }
+
+    // Initialize tools if switching to tools view
+    if (view === 'tools' && typeof window.setupDriverTools === 'function') {
+        window.setupDriverTools();
+    }
 }
 
 // Global navigation function for onclick handlers
-window.navigateTo = function(view) {
+window.navigateTo = function (view) {
     console.log('navigateTo called:', view);
-    
+
     // Ensure DOM is ready before calling showView
     if (document.readyState === 'loading') {
         console.log('DOM not ready, waiting...');
@@ -62,7 +70,7 @@ window.navigateTo = function(view) {
     } else {
         showView(view);
     }
-    
+
     // Refresh specific view data when switching
     setTimeout(() => {
         try {

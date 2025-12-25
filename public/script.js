@@ -3155,3 +3155,6 @@ window.viewReceiptPhoto = viewReceiptPhoto;
 window.deleteReceipt = deleteReceipt;
 window.closeReceiptModal = closeReceiptModal;
 
+// Driver tools
+window.setupDriverTools = setupDriverTools;
+
