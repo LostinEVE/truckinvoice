@@ -553,7 +553,7 @@ function displayHistory(searchTerm = '') {
                     <strong>Invoice #${invoice.invoiceNumber}</strong>
                     <span class="history-date">${new Date(invoice.timestamp).toLocaleDateString()}</span>
                     <span class="payment-status ${isPaid ? 'paid' : 'unpaid'}">
-                        ${isPaid ? '✓ Paid' : 'Unpaid'}
+                        ${isPaid ? '&#10003; Paid' : 'Unpaid'}
                     </span>
                     ${isOverdue ? '<span class="overdue-badge">⚠ 30+ Days Overdue</span>' : ''}
                 </div>
@@ -615,7 +615,7 @@ function togglePaymentStatus(id, isPaid) {
 
         // Show confirmation message
         const message = isPaid
-            ? `Invoice #${invoice.invoiceNumber} marked as PAID Γ£ô`
+            ? `Invoice #${invoice.invoiceNumber} marked as PAID ✔`
             : `Invoice #${invoice.invoiceNumber} marked as UNPAID`;
         showPaymentToast(message, isPaid);
     }
