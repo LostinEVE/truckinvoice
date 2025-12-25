@@ -1,9 +1,14 @@
 ﻿// Initialize EmailJS
 emailjs.init('flEWLVoiJ1uMBZgnW');
 
-// Import category labels from expenses module
+// Import from expenses module and make functions globally available
 import('./expenses.js').then(module => {
     window.categoryLabels = module.categoryLabels;
+    window.displayExpenses = module.displayExpenses;
+    window.setupExpenses = module.setupExpenses;
+    window.getExpenses = module.getExpenses;
+    window.saveExpense = module.saveExpense;
+    window.deleteExpense = module.deleteExpense;
 });
 
 // Register service worker for PWA
@@ -819,123 +824,9 @@ function setupCalculator() {
     }
 }
 
-// Expense Tracking Functions
-function setupExpenses() {
-    const expenseForm = document.getElementById('expenseForm');
-    const expenseDate = document.getElementById('expenseDate');
-    const searchExpenses = document.getElementById('searchExpenses');
-
-    // Set today's date as default for expenses
-    expenseDate.value = new Date().toISOString().split('T')[0];
-
-    expenseForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const expense = {
-            id: Date.now().toString(),
-            date: document.getElementById('expenseDate').value,
-            amount: parseFloat(document.getElementById('expenseAmount').value).toFixed(2),
-            category: document.getElementById('expenseCategory').value,
-            vendor: document.getElementById('expenseVendor').value,
-            notes: document.getElementById('expenseNotes').value,
-            timestamp: new Date().toISOString()
-        };
-
-        saveExpense(expense);
-        expenseForm.reset();
-        expenseDate.value = new Date().toISOString().split('T')[0];
-        displayExpenses();
-        alert('Expense added successfully!');
-    });
-
-    searchExpenses.addEventListener('input', (e) => {
-        displayExpenses(e.target.value);
-    });
-}
-
-function saveExpense(expense) {
-    const expenses = getExpenses();
-    expenses.unshift(expense);
-    localStorage.setItem('expenses', JSON.stringify(expenses));
-
-    // Sync to cloud if enabled
-    if (typeof saveExpenseToCloud === 'function') {
-        saveExpenseToCloud(expense);
-    }
-}
-
-function getExpenses() {
-    const expenses = localStorage.getItem('expenses');
-    return expenses ? JSON.parse(expenses) : [];
-}
-
-function displayExpenses(searchTerm = '') {
-    const expenses = getExpenses();
-    const expensesList = document.getElementById('expensesList');
-
-    let filteredExpenses = expenses;
-    if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        filteredExpenses = expenses.filter(exp =>
-            exp.vendor.toLowerCase().includes(term) ||
-            exp.category.toLowerCase().includes(term) ||
-            exp.notes.toLowerCase().includes(term)
-        );
-    }
-
-    if (filteredExpenses.length === 0) {
-        expensesList.innerHTML = '<div class="no-history">No expenses found</div>';
-        return;
-    }
-
-    // Use imported category labels
-    const categoryLabels = window.categoryLabels || {
-        fuel: 'Fuel',
-        maintenance: 'Maintenance & Repairs',
-        tolls: 'Tolls & Parking',
-        food: 'Food & Meals',
-        insurance: 'Insurance',
-        permits: 'Permits & Licenses',
-        truck_payment: 'Truck Payment/Lease',
-        supplies: 'Supplies',
-        drivers_pay: 'Drivers Pay',
-        other: 'Other'
-    };
-
-    expensesList.innerHTML = filteredExpenses.map(expense => `
-        <div class="history-item expense-item">
-            <div class="history-header">
-                <div class="history-title">
-                    <strong>${categoryLabels[expense.category]}</strong>
-                    <span class="history-date">${new Date(expense.date).toLocaleDateString()}</span>
-                </div>
-                <div class="history-amount expense-amount">$${expense.amount}</div>
-            </div>
-            <div class="history-details">
-                <div><strong>Vendor:</strong> ${expense.vendor}</div>
-                ${expense.notes ? `<div><strong>Notes:</strong> ${expense.notes}</div>` : ''}
-            </div>
-            <div class="history-actions">
-                <button class="btn-delete" onclick="deleteExpense('${expense.id}')">Delete</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function deleteExpense(id) {
-    if (confirm('Are you sure you want to delete this expense?')) {
-        let expenses = getExpenses();
-        expenses = expenses.filter(exp => exp.id !== id);
-        localStorage.setItem('expenses', JSON.stringify(expenses));
-        displayExpenses();
-        updateDashboard();
-
-        // Delete from cloud if enabled
-        if (typeof deleteExpenseFromCloud === 'function') {
-            deleteExpenseFromCloud(id);
-        }
-    }
-}
+// Expense Tracking - Now handled by expenses.js module
+// The setupExpenses, displayExpenses, saveExpense, getExpenses, and deleteExpense
+// functions are imported from expenses.js and made available globally
 
 // Dashboard Functions
 function setupDashboard() {

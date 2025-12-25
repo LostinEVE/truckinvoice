@@ -154,27 +154,27 @@ export function displayExpenses(searchTerm = '') {
     });
 }
 
-// Get all expenses from storage
-function getAllExpenses() {
-    const expenses = localStorage.getItem('expenses');
-    return expenses ? JSON.parse(expenses) : [];
-}
-
 // Get expense by ID
 function getExpenseById(id) {
-    const expenses = getAllExpenses();
+    const expenses = getExpenses();
     return expenses.find(exp => exp.id === id);
 }
 
-// Delete expense by ID
-function deleteExpense(id) {
-    let expenses = getAllExpenses();
+// Delete expense by ID - exported for global use
+export function deleteExpense(id) {
+    let expenses = getExpenses();
     expenses = expenses.filter(exp => exp.id !== id);
-    localStorage.setItem('expenses', JSON.stringify(expenses));
+    setStoredExpenses(expenses);
+    displayExpenses();
+    
+    // Update dashboard if available
+    if (typeof window.updateDashboard === 'function') {
+        window.updateDashboard();
+    }
 
-    // Also sync with Firebase if available
-    if (window.syncExpenses) {
-        window.syncExpenses();
+    // Delete from cloud if enabled
+    if (typeof window.deleteExpenseFromCloud === 'function') {
+        window.deleteExpenseFromCloud(id);
     }
 }
 
@@ -241,12 +241,30 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Handle delete expense
+// Handle delete expense - called from accordion delete buttons
 function handleDeleteExpense(event) {
     const id = event.currentTarget.dataset.id;
+    // Call deleteExpenseDirectly to avoid double confirmation
+    deleteExpenseDirectly(id);
+}
+
+// Direct delete without confirmation (for internal use after button click confirms intent)
+function deleteExpenseDirectly(id) {
     if (confirm('Are you sure you want to delete this expense?')) {
-        deleteExpense(id);
-        renderExpenses();
+        let expenses = getExpenses();
+        expenses = expenses.filter(exp => exp.id !== id);
+        setStoredExpenses(expenses);
+        displayExpenses();
+        
+        // Update dashboard if available
+        if (typeof window.updateDashboard === 'function') {
+            window.updateDashboard();
+        }
+
+        // Delete from cloud if enabled
+        if (typeof window.deleteExpenseFromCloud === 'function') {
+            window.deleteExpenseFromCloud(id);
+        }
     }
 }
 
