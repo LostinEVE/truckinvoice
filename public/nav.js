@@ -94,4 +94,142 @@ window.navigateTo = function (view) {
 // Make showView available on window for module script
 window.showView = showView;
 
+// ======================================
+// TRUCK MANAGEMENT FUNCTIONS (Global)
+// ======================================
+
+function getTrucks() {
+    const trucksData = localStorage.getItem('trucks');
+    return trucksData ? JSON.parse(trucksData) : [];
+}
+
+function saveTrucks(trucks) {
+    localStorage.setItem('trucks', JSON.stringify(trucks));
+}
+
+function openTruckModal() {
+    console.log('openTruckModal called');
+    const modal = document.getElementById('truckModal');
+    console.log('truckModal element:', modal);
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        renderTruckList();
+    } else {
+        console.error('truckModal not found in DOM');
+    }
+}
+
+function closeTruckModal() {
+    console.log('closeTruckModal called');
+    const modal = document.getElementById('truckModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+}
+
+function addTruck() {
+    console.log('addTruck called');
+    const nameInput = document.getElementById('newTruckName');
+    const unitInput = document.getElementById('newTruckUnit');
+
+    if (!nameInput) {
+        console.error('newTruckName input not found');
+        return;
+    }
+
+    const name = nameInput.value.trim();
+    const unit = unitInput ? unitInput.value.trim() : '';
+
+    if (!name) {
+        alert('Please enter a truck name');
+        return;
+    }
+
+    const trucks = getTrucks();
+    const newTruck = {
+        id: Date.now().toString(),
+        name: name,
+        unit: unit,
+        createdAt: new Date().toISOString()
+    };
+
+    trucks.push(newTruck);
+    saveTrucks(trucks);
+    console.log('Truck added:', newTruck);
+
+    // Clear inputs
+    nameInput.value = '';
+    if (unitInput) unitInput.value = '';
+
+    // Refresh list
+    renderTruckList();
+
+    // Update all truck dropdowns in the app
+    updateAllTruckDropdowns();
+}
+
+function deleteTruck(truckId) {
+    if (!confirm('Delete this truck? This cannot be undone.')) return;
+
+    let trucks = getTrucks();
+    trucks = trucks.filter(t => t.id !== truckId);
+    saveTrucks(trucks);
+
+    renderTruckList();
+    updateAllTruckDropdowns();
+}
+
+function renderTruckList() {
+    const truckList = document.getElementById('truckList');
+    if (!truckList) {
+        console.error('truckList element not found');
+        return;
+    }
+
+    const trucks = getTrucks();
+    console.log('Rendering truck list, trucks:', trucks);
+
+    if (trucks.length === 0) {
+        truckList.innerHTML = '<div class="no-trucks">No trucks added yet. Add your first truck above!</div>';
+        return;
+    }
+
+    truckList.innerHTML = trucks.map(truck => `
+        <div class="truck-item">
+            <div class="truck-info">
+                <span class="truck-name">🚛 ${truck.name}</span>
+                ${truck.unit ? `<span class="truck-unit">(Unit #${truck.unit})</span>` : ''}
+            </div>
+            <button type="button" class="btn-delete-truck" onclick="deleteTruck('${truck.id}')">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function updateAllTruckDropdowns() {
+    const trucks = getTrucks();
+    const dropdowns = document.querySelectorAll('.truck-select');
+
+    dropdowns.forEach(dropdown => {
+        const currentValue = dropdown.value;
+        dropdown.innerHTML = '<option value="">All Trucks</option>' +
+            trucks.map(t => `<option value="${t.id}">${t.name}${t.unit ? ' (#' + t.unit + ')' : ''}</option>`).join('');
+        if (currentValue && trucks.find(t => t.id === currentValue)) {
+            dropdown.value = currentValue;
+        }
+    });
+}
+
+// Expose truck functions globally
+window.openTruckModal = openTruckModal;
+window.closeTruckModal = closeTruckModal;
+window.addTruck = addTruck;
+window.deleteTruck = deleteTruck;
+window.getTrucks = getTrucks;
+window.saveTrucks = saveTrucks;
+window.renderTruckList = renderTruckList;
+window.updateAllTruckDropdowns = updateAllTruckDropdowns;
+
 console.log('nav.js loaded. window.navigateTo:', typeof window.navigateTo);
+console.log('nav.js: openTruckModal available:', typeof window.openTruckModal);

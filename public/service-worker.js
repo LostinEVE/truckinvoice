@@ -1,4 +1,4 @@
-const CACHE_NAME = 'truckinvoice-v23-force-sync';
+const CACHE_NAME = 'truckinvoice-v24-truck-modal-fix';
 const urlsToCache = [
   './index.html',
   './style.css',
