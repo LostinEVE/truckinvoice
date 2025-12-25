@@ -448,11 +448,12 @@ input:focus {
 /* Navigation Tabs */
 .nav-tabs {
     display: flex;
-    gap: 10px;
+    gap: 5px;
     margin-bottom: 20px;
     border-bottom: 2px solid #e0e0e0;
     overflow-x: auto;
     scroll-behavior: smooth;
+    flex-wrap: nowrap;
 }
 
 .nav-dropdown-container {
@@ -461,9 +462,8 @@ input:focus {
 }
 
 .nav-tab {
-    flex: 1;
-    min-width: 80px;
-    padding: 12px 15px;
+    flex: 0 0 auto;
+    padding: 12px 14px;
     background: transparent;
     border: none;
     border-bottom: 3px solid transparent;
